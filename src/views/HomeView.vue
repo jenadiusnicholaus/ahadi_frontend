@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import WebNavbar from '@/components/WebNavbar.vue'
+import HeroSection from '@/components/HeroSection.vue'
 </script>
 
 <template>
   <div class="home">
     <WebNavbar />
+    <HeroSection />
 
     <main>
       <section id="discover" class="section">
@@ -39,20 +41,20 @@ import WebNavbar from '@/components/WebNavbar.vue'
 main {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 48px 24px;
+  padding: 20px 24px 24px;
   background: #fff;
 }
 
 @media (max-width: 768px) {
   main {
-    padding: 28px 20px 40px;
+    padding: 16px 20px 20px;
     margin: 0;
   }
 }
 
 .section {
   min-height: 60vh;
-  padding: 48px 0;
+  padding: 24px 0;
   border-bottom: 1px solid #e5e7eb;
 }
 
@@ -63,10 +65,10 @@ main {
 @media (max-width: 768px) {
   .section {
     min-height: 0;
-    padding: 32px 0 40px;
+    padding: 20px 0 24px;
   }
   .section:first-child {
-    padding-top: 24px;
+    padding-top: 12px;
   }
 }
 
