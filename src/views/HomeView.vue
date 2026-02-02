@@ -6,6 +6,7 @@ import EventTypesSection from '@/components/EventTypesSection.vue'
 import DiscoverEventsSection from '@/components/DiscoverEventsSection.vue'
 import HowItWorksSection from '@/components/HowItWorksSection.vue'
 import PricingSection from '@/components/PricingSection.vue'
+import AboutSection from '@/components/AboutSection.vue'
 import { usePublicEvents } from '@/composables/usePublicEvents'
 import type { PublicEvent } from '@/types/events'
 
@@ -59,12 +60,9 @@ function onEventCardClick(_event: PublicEvent) {
       <HowItWorksSection />
 
       <PricingSection />
-
-      <section id="about" class="section">
-        <h2>About</h2>
-        <p>Learn more about Ahadi.</p>
-      </section>
     </main>
+
+    <AboutSection />
   </div>
 </template>
 
