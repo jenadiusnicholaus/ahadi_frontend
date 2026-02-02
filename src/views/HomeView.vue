@@ -1,6 +1,34 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import WebNavbar from '@/components/WebNavbar.vue'
 import HeroSection from '@/components/HeroSection.vue'
+import EventTypesSection from '@/components/EventTypesSection.vue'
+import DiscoverEventsSection from '@/components/DiscoverEventsSection.vue'
+import { usePublicEvents } from '@/composables/usePublicEvents'
+import type { PublicEvent } from '@/types/events'
+
+const {
+  eventTypes,
+  eventTypesLoading,
+  selectedEventTypeId,
+  events,
+  eventsLoading,
+  eventsError,
+  hasActiveFilters,
+  loadEventTypes,
+  loadEvents,
+  filterByEventType,
+  clearFilters,
+} = usePublicEvents()
+
+onMounted(() => {
+  loadEventTypes()
+  loadEvents(1)
+})
+
+function onEventCardClick(_event: PublicEvent) {
+  // TODO: navigate to event details or open modal
+}
 </script>
 
 <template>
@@ -9,12 +37,24 @@ import HeroSection from '@/components/HeroSection.vue'
     <HeroSection />
 
     <main>
-      <section id="discover" class="section">
-        <h2>Discover</h2>
-        <p>Find events that matter to you.</p>
+      <section id="discover" class="discover-wrapper">
+        <EventTypesSection
+          :event-types="eventTypes"
+          :loading="eventTypesLoading"
+          :selected-event-type-id="selectedEventTypeId"
+          @filter-by-type="filterByEventType"
+        />
+        <DiscoverEventsSection
+          :events="events"
+          :loading="eventsLoading"
+          :error="eventsError"
+          :has-active-filters="hasActiveFilters"
+          @clear-filters="clearFilters"
+          @card-click="onEventCardClick"
+        />
       </section>
 
-      <section id="how-it-works" class="section">
+      <section id="how-it-works" class="section" style="margin-top: 0;">
         <h2>How It Works</h2>
         <p>Create, share, and manage events in a few steps.</p>
       </section>

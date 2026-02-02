@@ -4,6 +4,8 @@
  */
 export const APP_NAME = 'Ahadi'
 
+export const DESKTOP_BREAKPOINT = 1200
+
 export const APP_CONFIG = {
   name: APP_NAME,
   /** Used for document title, meta tags, etc. */

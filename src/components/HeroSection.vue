@@ -59,9 +59,9 @@ onMounted(() => {
 
             <!-- Connector from Level 1 to Level 2 -->
             <svg class="connector connector-1-2" viewBox="0 0 200 40" preserveAspectRatio="none">
-              <line x1="100" y1="0" x2="100" y2="20" stroke="#e5e5e5" stroke-width="2"/>
-              <line x1="100" y1="20" x2="50" y2="40" stroke="#e5e5e5" stroke-width="2"/>
-              <line x1="100" y1="20" x2="150" y2="40" stroke="#e5e5e5" stroke-width="2"/>
+              <line x1="100" y1="0" x2="100" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="100" y1="20" x2="50" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="100" y1="20" x2="150" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
             </svg>
 
             <!-- Level 2: Two metrics -->
@@ -78,14 +78,14 @@ onMounted(() => {
 
             <!-- Connectors from Level 2 to Level 3 -->
             <svg class="connector connector-2-3-left" viewBox="0 0 100 40" preserveAspectRatio="none">
-              <line x1="50" y1="0" x2="50" y2="20" stroke="#e5e5e5" stroke-width="2"/>
-              <line x1="50" y1="20" x2="25" y2="40" stroke="#e5e5e5" stroke-width="2"/>
-              <line x1="50" y1="20" x2="75" y2="40" stroke="#e5e5e5" stroke-width="2"/>
+              <line x1="50" y1="0" x2="50" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="50" y1="20" x2="25" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="50" y1="20" x2="75" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
             </svg>
             <svg class="connector connector-2-3-right" viewBox="0 0 100 40" preserveAspectRatio="none">
-              <line x1="50" y1="0" x2="50" y2="20" stroke="#e5e5e5" stroke-width="2"/>
-              <line x1="50" y1="20" x2="25" y2="40" stroke="#e5e5e5" stroke-width="2"/>
-              <line x1="50" y1="20" x2="75" y2="40" stroke="#e5e5e5" stroke-width="2"/>
+              <line x1="50" y1="0" x2="50" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="50" y1="20" x2="25" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="50" y1="20" x2="75" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
             </svg>
 
             <!-- Level 3: Four metrics -->
@@ -163,6 +163,48 @@ onMounted(() => {
   align-items: center;
   padding: 16px 20px;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+
+@media (min-width: 968px) {
+  .hero {
+    min-height: auto;
+    align-items: flex-start;
+    padding: 44px 20px 18px 40px;
+  }
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('/images/static_images/homepage.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.82;
+  z-index: 0;
+}
+
+/* Soft overlay so words are readable: stronger on the left where text is */
+.hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    rgba(252, 251, 249, 0.32) 0%,
+    rgba(252, 251, 249, 0.08) 50%,
+    rgba(252, 251, 249, 0.02) 100%
+  );
+  z-index: 1;
+  pointer-events: none;
+}
+
+.hero .hero-container {
+  position: relative;
+  z-index: 2;
 }
 
 .hero-container {
@@ -237,17 +279,19 @@ onMounted(() => {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--color-text-muted);
+  color: #333;
   margin-bottom: 10px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 0 2px rgba(255, 255, 255, 1), 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 .hero-heading {
   font-size: 64px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.05;
   letter-spacing: -0.03em;
-  color: var(--color-text);
+  color: #0a0a0a;
   margin: 0 0 16px 0;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.22), 0 0 2px rgba(255, 255, 255, 1), 0 2px 6px rgba(0, 0, 0, 0.18);
 }
 
 .hero-heading-accent {
@@ -280,9 +324,10 @@ onMounted(() => {
 .hero-subtext {
   font-size: 17px;
   line-height: 1.7;
-  color: var(--color-text-muted);
+  color: #444;
   max-width: 540px;
   margin: 0 0 18px 0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 0 2px rgba(255, 255, 255, 1), 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 /* ============================================
@@ -317,9 +362,9 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 16px 28px;
-  font-size: 15px;
+  gap: 8px;
+  padding: 11px 20px;
+  font-size: 14px;
   font-weight: 600;
   border: 2px solid transparent;
   border-radius: 10px;
@@ -331,6 +376,8 @@ onMounted(() => {
 
 .btn svg {
   flex-shrink: 0;
+  width: 16px;
+  height: 16px;
 }
 
 .btn-primary {
@@ -364,11 +411,15 @@ onMounted(() => {
 
 @media (max-width: 640px) {
   .hero-actions {
-    gap: 12px;
+    gap: 10px;
   }
   .btn {
-    padding: 14px 24px;
-    font-size: 14px;
+    padding: 10px 18px;
+    font-size: 13px;
+  }
+  .btn svg {
+    width: 15px;
+    height: 15px;
   }
 }
 
@@ -523,11 +574,12 @@ onMounted(() => {
   font-size: 16px;
 }
 
-/* Connectors */
+/* Connectors – visible lines linking metrics */
 .connector {
   width: 100%;
   height: 40px;
   display: block;
+  color: rgba(0, 0, 0, 0.28);
 }
 
 .connector-1-2 {
