@@ -1,7 +1,17 @@
+type Env = { API_BASE_URL?: string; API_AUTH_PREFIX?: string }
+
+function getEnv(): Env {
+  if (typeof import.meta === 'undefined') return {}
+  return (import.meta as unknown as { env?: Env }).env ?? {}
+}
+
 function getBaseUrl(): string {
-  if (typeof import.meta === 'undefined') return ''
-  const env = (import.meta as unknown as { env?: { API_BASE_URL?: string } }).env
-  return (env?.API_BASE_URL ?? '').replace(/\/$/, '')
+  return (getEnv().API_BASE_URL ?? '').replace(/\/$/, '')
+}
+
+export function getAuthPrefix(): string {
+  const prefix = getEnv().API_AUTH_PREFIX ?? 'auth'
+  return prefix.replace(/^\/|\/$/g, '')
 }
 
 export function apiUrl(path: string, searchParams?: Record<string, string>): string {
@@ -27,4 +37,16 @@ export async function get<T>(path: string, params?: Record<string, string>): Pro
   const res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } })
   if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`)
   return res.json() as Promise<T>
+}
+
+export async function post<T>(path: string, body: unknown): Promise<T> {
+  const url = apiUrl(path)
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`)
+  const text = await res.text()
+  return (text ? JSON.parse(text) : {}) as T
 }

@@ -158,6 +158,7 @@ onMounted(() => {
 
 .hero {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--color-bg);
   display: flex;
   align-items: center;
@@ -167,11 +168,23 @@ onMounted(() => {
   overflow: hidden;
 }
 
+/* Mobile: subtract navbar height (52px) so hero + navbar = one viewport */
+@media (max-width: 967px) {
+  .hero {
+    align-items: center;
+    padding: 24px 20px 32px;
+    min-height: calc(100vh - 52px);
+    min-height: calc(100dvh - 52px);
+  }
+}
+
+/* Desktop: subtract navbar height (~80px) so hero + navbar = one viewport */
 @media (min-width: 968px) {
   .hero {
-    min-height: auto;
-    align-items: flex-start;
-    padding: 44px 20px 18px 40px;
+    min-height: calc(100vh - 80px);
+    min-height: calc(100dvh - 80px);
+    align-items: center;
+    padding: 44px 20px 48px 40px;
   }
 }
 
@@ -230,23 +243,55 @@ onMounted(() => {
   gap: 24px;
 }
 
-/* Mobile: order = main → metrics → buttons (buttons at end, in a row) */
-.hero-main {
-  order: 1;
-}
-.hero-sidebar {
-  order: 2;
-}
-.hero-actions {
-  order: 3;
+/* Mobile: full-screen left part only – hide metrics, center main + buttons */
+@media (max-width: 967px) {
+  .hero-grid {
+    min-height: calc(100vh - 52px - 56px);
+    min-height: calc(100dvh - 52px - 56px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 28px;
+  }
+  .hero-sidebar {
+    display: none;
+  }
+  .hero-main {
+    order: 1;
+  }
+  .hero-actions {
+    order: 2;
+    justify-content: flex-start;
+    margin-top: 0;
+  }
 }
 
 @media (min-width: 968px) {
   .hero-grid {
+    min-height: calc(100vh - 80px - 92px);
+    min-height: calc(100dvh - 80px - 92px);
+    display: grid;
+    flex-direction: unset;
+    justify-content: unset;
     grid-template-columns: 1.2fr 1fr;
     grid-template-rows: auto auto;
     gap: 20px 28px;
+    align-content: center;
   }
+  .hero-sidebar {
+    display: flex;
+    order: unset;
+  }
+  .hero-main {
+    order: unset;
+  }
+  .hero-actions {
+    order: unset;
+    justify-content: flex-start;
+  }
+}
+
+@media (min-width: 968px) {
   .hero-main {
     grid-column: 1;
     grid-row: 1;

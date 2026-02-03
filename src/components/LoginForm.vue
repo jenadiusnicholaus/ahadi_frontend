@@ -1,14 +1,87 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { signInWithGoogle } from '@/api/auth'
+import PhoneVerifyModal from '@/components/PhoneVerifyModal.vue'
+import type { VerifyOtpResponse } from '@/api/auth'
+
 defineProps<{
   showMobileLogo?: boolean
 }>()
+
+const router = useRouter()
+const authStore = useAuthStore()
+const googleLoading = ref(false)
+const googleError = ref<string | null>(null)
+const showPhoneModal = ref(false)
+
+const GOOGLE_CLIENT_ID = import.meta.env.GOOGLE_CLIENT_ID as string | undefined
+const GSI_SCRIPT_URL = 'https://accounts.google.com/gsi/client'
 
 function onWhatsApp() {
   window.location.href = '#'
 }
 
+function loadGoogleScript(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') {
+      reject(new Error('No window'))
+      return
+    }
+    if (window.google?.accounts?.oauth2) {
+      resolve()
+      return
+    }
+    const existing = document.querySelector(`script[src="${GSI_SCRIPT_URL}"]`)
+    if (existing) {
+      const check = () => (window.google?.accounts?.oauth2 ? resolve() : setTimeout(check, 50))
+      check()
+      return
+    }
+    const script = document.createElement('script')
+    script.src = GSI_SCRIPT_URL
+    script.async = true
+    script.defer = true
+    script.onload = () => resolve()
+    script.onerror = () => reject(new Error('Failed to load Google Sign-In'))
+    document.head.appendChild(script)
+  })
+}
+
 function onGoogle() {
-  window.location.href = '#'
+  if (!GOOGLE_CLIENT_ID) {
+    googleError.value = 'Google Sign-In is not configured (missing GOOGLE_CLIENT_ID).'
+    return
+  }
+  googleError.value = null
+  googleLoading.value = true
+  loadGoogleScript()
+    .then(() => {
+      const google = window.google
+      if (!google?.accounts?.oauth2) {
+        throw new Error('Google Sign-In not available')
+      }
+      const tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: 'email profile openid',
+        callback: async (tokenResponse: { access_token: string }) => {
+          try {
+            await signInWithGoogle({ access_token: tokenResponse.access_token })
+            showPhoneModal.value = true
+          } catch (err) {
+            googleError.value = err instanceof Error ? err.message : 'Sign-in failed'
+          } finally {
+            googleLoading.value = false
+          }
+        },
+      })
+      tokenClient.requestAccessToken()
+    })
+    .catch((err) => {
+      googleError.value = err instanceof Error ? err.message : 'Google Sign-In failed'
+      googleLoading.value = false
+    })
 }
 
 function onFacebook() {
@@ -21,6 +94,31 @@ function onApple() {
 
 function onCreateEvent() {
   window.location.href = '#'
+}
+
+function onPhoneVerified(data: VerifyOtpResponse) {
+  const d = data?.data
+  const access = d?.access ?? d?.access_token
+  const refresh = d?.refresh ?? d?.refresh_token
+  if (access != null) {
+    localStorage.setItem('ahadi_access', String(access))
+  } else {
+    localStorage.setItem('ahadi_access', 'session')
+  }
+  if (refresh != null) {
+    localStorage.setItem('ahadi_refresh', String(refresh))
+  }
+  if (d?.user != null && typeof d.user === 'object') {
+    authStore.setUser(d.user as { full_name?: string; id?: number; phone?: string; email?: string | null; [key: string]: unknown })
+  }
+  authStore.setSessionExpiry()
+  authStore.setLoggedIn(true)
+  showPhoneModal.value = false
+  router.push({ name: 'home' })
+}
+
+function onPhoneModalClose() {
+  showPhoneModal.value = false
 }
 </script>
 
@@ -64,16 +162,23 @@ function onCreateEvent() {
 
       <!-- Social row -->
       <div class="social-row">
-        <button type="button" class="social-btn" aria-label="Continue with Google" @click="onGoogle">
+        <button
+          type="button"
+          class="social-btn"
+          aria-label="Continue with Google"
+          :disabled="googleLoading"
+          @click="onGoogle"
+        >
           <span class="social-icon social-icon-google">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+            <span v-if="googleLoading" class="social-spinner" aria-hidden="true" />
+            <svg v-else xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
           </span>
-          <span class="social-label">Google</span>
+          <span class="social-label">{{ googleLoading ? 'Signing in…' : 'Google' }}</span>
         </button>
         <button type="button" class="social-btn" aria-label="Continue with Facebook" @click="onFacebook">
           <span class="social-icon social-icon-facebook">
@@ -92,6 +197,7 @@ function onCreateEvent() {
           <span class="social-label">Apple</span>
         </button>
       </div>
+      <p v-if="googleError" class="form-error" role="alert">{{ googleError }}</p>
       <div class="form-spacer" />
 
       <!-- Terms -->
@@ -123,6 +229,12 @@ function onCreateEvent() {
         </span>
       </button>
     </div>
+
+    <PhoneVerifyModal
+      :open="showPhoneModal"
+      @close="onPhoneModalClose"
+      @verified="onPhoneVerified"
+    />
   </div>
 </template>
 
@@ -305,6 +417,31 @@ function onCreateEvent() {
   font-size: 12px;
   font-weight: 500;
   color: #6b7280;
+}
+
+.social-spinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #4285f4;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.form-error {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: #b91c1c;
+  text-align: center;
+}
+
+.social-btn:disabled {
+  opacity: 0.8;
+  cursor: not-allowed;
 }
 
 /* Terms */
