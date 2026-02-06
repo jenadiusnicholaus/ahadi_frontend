@@ -11,6 +11,7 @@ import EventWalletView from '@/views/EventWalletView.vue'
 import EventTransactionsView from '@/views/EventTransactionsView.vue'
 import EditEventView from '@/views/EditEventView.vue'
 import EventChatView from '@/views/EventChatView.vue'
+import CalendarView from '@/views/CalendarView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -71,6 +72,12 @@ const router = createRouter({
       path: '/events/:id/edit',
       name: 'events-edit',
       component: EditEventView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/calendar',
+      name: 'calendar',
+      component: CalendarView,
       meta: { requiresAuth: true },
     },
     {
