@@ -45,12 +45,19 @@ export interface ParticipantUpdatePayload extends Partial<ParticipantCreatePaylo
 
 /**
  * GET /api/v1/participants/
- * List participants. Params: page, search.
+ * List participants. Params: page, page_size, search, event (event id).
  */
-export function fetchParticipants(params?: { page?: number; search?: string }): Promise<PaginatedParticipantsResponse> {
+export function fetchParticipants(params?: {
+  page?: number
+  page_size?: number
+  search?: string
+  event?: number
+}): Promise<PaginatedParticipantsResponse> {
   const search: Record<string, string> = {}
   if (params?.page != null) search.page = String(params.page)
+  if (params?.page_size != null) search.page_size = String(params.page_size)
   if (params?.search != null && params.search !== '') search.search = params.search
+  if (params?.event != null) search.event = String(params.event)
   return get<PaginatedParticipantsResponse>(
     'participants/',
     Object.keys(search).length ? search : undefined

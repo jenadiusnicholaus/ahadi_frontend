@@ -3,7 +3,6 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import WebNavbar from '@/components/WebNavbar.vue'
 import EventCard from '@/components/EventCard.vue'
-import EventDetailModal from '@/components/EventDetailModal.vue'
 import { fetchMyEvents } from '@/api/myEvents'
 import type { PublicEvent } from '@/types/events'
 
@@ -11,7 +10,6 @@ const router = useRouter()
 const events = ref<PublicEvent[]>([])
 const loading = ref(true)
 const error = ref<Error | null>(null)
-const selectedEvent = ref<PublicEvent | null>(null)
 
 async function loadEvents() {
   loading.value = true
@@ -32,11 +30,7 @@ onMounted(() => {
 })
 
 function onEventCardClick(event: PublicEvent) {
-  selectedEvent.value = event
-}
-
-function onCloseModal() {
-  selectedEvent.value = null
+  router.push({ name: 'events-detail', params: { id: String(event.id) } })
 }
 
 function goToCreateEvent() {
@@ -88,12 +82,6 @@ function goToCreateEvent() {
         />
       </div>
     </main>
-
-    <EventDetailModal
-      :event="selectedEvent"
-      :open="selectedEvent !== null"
-      @close="onCloseModal"
-    />
   </div>
 </template>
 

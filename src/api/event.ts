@@ -104,9 +104,16 @@ export function fetchEventContributions(id: number): Promise<unknown> {
   return get<unknown>(`events/${id}/contributions/`)
 }
 
-/** GET /api/v1/events/{id}/messages/ – List chat messages. */
-export function fetchEventMessages(id: number): Promise<unknown> {
-  return get<unknown>(`events/${id}/messages/`)
+/** GET /api/v1/events/{id}/messages/ – List chat messages. Backend may return { data: [...] }, { results: [...] }, { messages: [...] }, or a direct array. */
+export async function fetchEventMessages(id: number): Promise<unknown[]> {
+  const res = await getWithAuth<Record<string, unknown> | unknown[]>(`events/${id}/messages/`)
+  if (Array.isArray(res)) return res
+  const r = res as Record<string, unknown>
+  for (const key of ['data', 'results', 'messages']) {
+    const val = r?.[key]
+    if (Array.isArray(val)) return val
+  }
+  return []
 }
 
 /** GET /api/v1/events/{id}/announcements/ – List announcements. */
