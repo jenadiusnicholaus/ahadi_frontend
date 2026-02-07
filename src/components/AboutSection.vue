@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { getAccessToken } from '@/api/token'
 
 const router = useRouter()
 
@@ -17,7 +18,19 @@ const STATS = [
 ]
 
 function onCreateEvent() {
-  router.push({ name: 'home' }) // TODO: replace with login when available
+  // Check if user is logged in
+  const hasToken = !!getAccessToken()
+  
+  if (hasToken) {
+    // User is logged in - navigate directly to create event form
+    router.push({ name: 'events-create' })
+  } else {
+    // User not logged in - redirect to login with redirect to create event form
+    router.push({ 
+      name: 'login', 
+      query: { redirect: '/events/create' } 
+    })
+  }
 }
 
 function onLearnMore() {
@@ -88,7 +101,7 @@ function onLearnMore() {
 .about-section {
   width: 100%;
   max-width: 100%;
-  background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 50%, #eef2f6 100%);
   overflow-x: hidden;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
@@ -131,22 +144,23 @@ function onLearnMore() {
 .section-label {
   display: inline-block;
   padding: 8px 16px;
-  background: rgba(59, 130, 246, 0.1);
+  background: rgba(59, 130, 246, 0.08);
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  color: #3b82f6;
-  letter-spacing: 1.5px;
-  margin-bottom: 24px;
+  color: #2563eb;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
 }
 
 .section-heading {
-  font-size: 38px;
+  font-size: 34px;
   font-weight: 700;
   color: #1a1a2e;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.03em;
   line-height: 1.25;
-  margin: 0 0 24px;
+  margin: 0 0 20px;
 }
 
 @media (max-width: 768px) {
@@ -217,7 +231,8 @@ function onLearnMore() {
   padding: 32px;
   background: #fff;
   border-radius: 24px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
@@ -276,10 +291,19 @@ function onLearnMore() {
 /* CTA Section - full width (AboutSection is outside main) */
 .cta-section {
   width: 100%;
-  padding: 64px 24px;
-  background: linear-gradient(135deg, hsl(220, 12%, 18%), hsl(220, 12%, 28%));
+  padding: 72px 24px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #2d2d3a 50%, #252532 100%);
   text-align: center;
   box-sizing: border-box;
+  position: relative;
+}
+
+.cta-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 60% 80% at 50% 120%, rgba(255, 255, 255, 0.04) 0%, transparent 60%);
+  pointer-events: none;
 }
 
 @media (max-width: 768px) {
@@ -294,6 +318,8 @@ function onLearnMore() {
   color: #fff;
   line-height: 1.3;
   margin: 0 0 16px;
+  position: relative;
+  letter-spacing: -0.02em;
 }
 
 @media (max-width: 768px) {

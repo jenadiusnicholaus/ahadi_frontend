@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { logoutApi } from '@/api/auth'
@@ -8,9 +8,17 @@ import { getRefreshToken } from '@/api/token'
 import { APP_NAME } from '@/config/app'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const { isLoggedIn, user } = storeToRefs(authStore)
 const showAccountMenu = ref(false)
+
+const SCROLL_THRESHOLD = 60
+const isScrolled = ref(false)
+
+function onScroll() {
+  isScrolled.value = window.scrollY > SCROLL_THRESHOLD
+}
 
 const userInitial = computed(() => {
   const name = user.value?.full_name ?? ''
@@ -82,10 +90,13 @@ function onDocumentClick(e: MouseEvent) {
 
 onMounted(() => {
   document.addEventListener('click', onDocumentClick)
+  onScroll()
+  window.addEventListener('scroll', onScroll, { passive: true })
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocumentClick)
+  window.removeEventListener('scroll', onScroll)
 })
 
 const isSearching = ref(false)
@@ -100,14 +111,56 @@ const sectionIds = {
 } as const
 
 function scrollToSection(sectionId: string) {
-  const el = document.getElementById(sectionId)
-  el?.scrollIntoView({ behavior: 'smooth' })
   menuOpen.value = false
+  
+  // If we're on the home page, scroll directly to the section
+  if (route.name === 'home') {
+    // Use nextTick to ensure DOM is ready
+    nextTick(() => {
+      const el = document.getElementById(sectionId)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' })
+      }
+    })
+  } else {
+    // If we're on a different page, navigate to home with hash
+    router.push({ name: 'home', hash: `#${sectionId}` }).then(() => {
+      // After navigation, scroll to the section
+      nextTick(() => {
+        const el = document.getElementById(sectionId)
+        if (el) {
+          // Small delay to ensure page has rendered
+          setTimeout(() => {
+            el.scrollIntoView({ behavior: 'smooth' })
+          }, 100)
+        }
+      })
+    })
+  }
 }
 
 function goToHome() {
-  router.push({ name: 'home' })
   menuOpen.value = false
+  
+  // If we're on the home page, scroll to hero section
+  if (route.name === 'home') {
+    nextTick(() => {
+      const el = document.getElementById('hero')
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' })
+        // Scroll to top of hero section
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+    })
+  } else {
+    // If we're on a different page, navigate to home
+    router.push({ name: 'home' }).then(() => {
+      nextTick(() => {
+        // Scroll to top of page (hero section)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      })
+    })
+  }
 }
 
 function openSearch() {
@@ -126,7 +179,7 @@ function onSearchSubmit() {
 </script>
 
 <template>
-  <header class="navbar">
+  <header class="navbar" :class="{ 'navbar-scrolled': isScrolled }">
     <!-- Mobile header: logo + name + hamburger -->
     <div class="navbar-mobile">
       <button type="button" class="mobile-logo-wrap" @click="goToHome">
@@ -225,12 +278,6 @@ function onSearchSubmit() {
 
           <!-- Main nav links with icons and separators -->
           <nav class="mobile-nav">
-            <button type="button" class="mobile-nav-link" @click="goToHome">
-              <span class="mobile-nav-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
-              </span>
-              <span>Dashboard</span>
-            </button>
             <button type="button" class="mobile-nav-link" @click="scrollToSection(sectionIds.discover)">
               <span class="mobile-nav-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m16.24 7.76 2.83-2.83"/><path d="m7.76 16.24-2.83 2.83"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/></svg>
@@ -309,7 +356,7 @@ function onSearchSubmit() {
     <!-- Desktop navbar -->
     <div class="navbar-inner">
       <!-- Logo -->
-      <button type="button" class="logo" @click="scrollToSection(sectionIds.discover)">
+      <button type="button" class="logo" @click="goToHome">
         <span class="logo-icon">
           <img
             src="/images/static_images/ahadi_logo.png"
@@ -324,9 +371,6 @@ function onSearchSubmit() {
 
       <!-- Nav links -->
       <nav class="nav-links">
-        <button type="button" class="nav-link" @click="goToHome">
-          Dashboard
-        </button>
         <button type="button" class="nav-link" @click="scrollToSection(sectionIds.discover)">
           Discover
         </button>
@@ -428,11 +472,23 @@ function onSearchSubmit() {
 
 <style scoped>
 .navbar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 100;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  transition: background 0.25s ease, border-color 0.25s ease, backdrop-filter 0.25s ease;
+}
+
+.navbar.navbar-scrolled {
   background: #fff;
-  border-bottom: 1px solid #e5e7eb;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom-color: #e5e7eb;
 }
 
 /* ----- Mobile header (visible only on small screens) ----- */
@@ -442,19 +498,48 @@ function onSearchSubmit() {
   justify-content: space-between;
   padding: 12px 14px;
   padding-top: max(12px, env(safe-area-inset-top));
-  background: #1a283b;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   min-height: 52px;
   gap: 10px;
+  transition: background 0.25s ease, backdrop-filter 0.25s ease;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.navbar.navbar-scrolled .navbar-mobile {
+  background: #fff;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 @media (max-width: 768px) {
-  .navbar {
-    background: #1a283b;
+  .navbar:not(.navbar-scrolled) {
     border-bottom: none;
   }
   .navbar-mobile {
     display: flex;
   }
+}
+
+/* Mobile: dark text when navbar has solid background (scrolled) */
+.navbar.navbar-scrolled .mobile-brand-name {
+  color: #1a1a2e;
+  text-shadow: none;
+}
+
+.navbar.navbar-scrolled .mobile-brand-tagline {
+  color: #6b7280;
+  text-shadow: none;
+}
+
+.navbar.navbar-scrolled .hamburger {
+  color: #1a1a2e;
+  border-color: #1a1a2e;
+}
+
+.navbar.navbar-scrolled .hamburger:hover {
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .mobile-logo-wrap {
@@ -488,16 +573,18 @@ function onSearchSubmit() {
 .mobile-brand-name {
   font-size: 18px;
   font-weight: 700;
-  color: #fff;
+  color: #1a1a2e;
   letter-spacing: -0.5px;
   line-height: 1.2;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 .mobile-brand-tagline {
   font-size: 11px;
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.9);
+  color: #52525b;
   line-height: 1.3;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 .hamburger {
@@ -511,16 +598,18 @@ function onSearchSubmit() {
   min-width: 40px;
   min-height: 40px;
   padding: 0;
-  background: transparent;
-  border: 2px solid #f97316;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid #1a1a2e;
   border-radius: 8px;
   cursor: pointer;
-  color: #fff;
+  color: #1a1a2e;
   flex-shrink: 0;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .hamburger:hover {
-  background: rgba(249, 115, 22, 0.15);
+  background: rgba(255, 255, 255, 0.4);
+  border-color: #0f0f14;
 }
 
 .hamburger-line {
@@ -852,6 +941,12 @@ function onSearchSubmit() {
   margin: 0 auto;
 }
 
+@media (max-width: 1024px) {
+  .navbar-inner {
+    padding: 16px 32px;
+  }
+}
+
 @media (max-width: 768px) {
   .navbar-inner {
     display: none;
@@ -895,6 +990,7 @@ function onSearchSubmit() {
   font-weight: 700;
   color: #1a1a2e;
   letter-spacing: -0.5px;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 .spacer {
@@ -912,14 +1008,17 @@ function onSearchSubmit() {
   border: none;
   padding: 8px 12px;
   font-size: 14px;
-  font-weight: 400;
-  color: #6b7280;
+  font-weight: 500;
+  color: #374151;
   cursor: pointer;
   border-radius: 8px;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+  transition: color 0.2s ease, background 0.2s ease;
 }
 
 .nav-link:hover {
   color: #1a1a2e;
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .nav-gap {

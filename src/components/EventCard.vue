@@ -116,11 +116,12 @@ function onClick() {
 <style scoped>
 .event-card {
   background: #fff;
-  border-radius: 16px;
+  border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 0 rgba(255, 255, 255, 0.6) inset;
   cursor: pointer;
-  transition: box-shadow 0.2s, transform 0.2s;
+  transition: box-shadow 0.25s, transform 0.25s, border-color 0.25s;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -129,8 +130,9 @@ function onClick() {
 }
 
 .event-card:hover {
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
-  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1), 0 1px 0 rgba(255, 255, 255, 0.6) inset;
+  transform: translateY(-3px);
+  border-color: rgba(26, 26, 46, 0.1);
 }
 
 .card-image-wrap {

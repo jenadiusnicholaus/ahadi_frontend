@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { signInWithGoogle } from '@/api/auth'
 import { setAccessToken, setRefreshToken, extractAccessTokenFromResponse } from '@/api/token'
@@ -12,6 +12,7 @@ defineProps<{
 }>()
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const googleLoading = ref(false)
 const googleError = ref<string | null>(null)
@@ -68,8 +69,51 @@ function onGoogle() {
         scope: 'email profile openid',
         callback: async (tokenResponse: { access_token: string }) => {
           try {
-            await signInWithGoogle({ access_token: tokenResponse.access_token })
-            showPhoneModal.value = true
+            const response = await signInWithGoogle({ access_token: tokenResponse.access_token })
+            // Handle different response shapes (some APIs return data wrapper, some don't)
+            const responseAsRecord = response as unknown as Record<string, unknown>
+            const responseData = responseAsRecord.data as {
+              requires_phone_link?: boolean
+              user?: { phone?: string; [key: string]: unknown }
+              [key: string]: unknown
+            } | undefined
+            const topLevelUser = responseAsRecord.user as { phone?: string; [key: string]: unknown } | undefined
+            
+            const requiresPhoneLink = responseData?.requires_phone_link ?? true
+            const hasPhone = responseData?.user?.phone || topLevelUser?.phone
+            
+            // Only show phone modal if phone linking is required and user doesn't have phone
+            if (requiresPhoneLink && !hasPhone) {
+              showPhoneModal.value = true
+            } else {
+              // User already has phone or doesn't need to link, process login
+              const access = extractAccessTokenFromResponse(response as VerifyOtpResponse)
+              if (access != null && access !== '') {
+                setAccessToken(access)
+                const d = response?.data as Record<string, unknown> | undefined
+                const refresh =
+                  d?.refresh ??
+                  d?.refresh_token ??
+                  (response as unknown as Record<string, unknown>).refresh ??
+                  (response as unknown as Record<string, unknown>).refresh_token
+                const userPayload = d?.user ?? (response as unknown as Record<string, unknown>).user
+                if (refresh != null && typeof refresh === 'string') {
+                  setRefreshToken(refresh)
+                }
+                if (userPayload != null && typeof userPayload === 'object') {
+                  authStore.setUser(userPayload as { full_name?: string; id?: number; phone?: string; email?: string | null; [key: string]: unknown })
+                }
+                authStore.setSessionExpiry()
+                authStore.setLoggedIn(true)
+                // Redirect to the intended page or home
+                const redirect = route.query.redirect as string | undefined
+                if (redirect) {
+                  router.push(redirect)
+                } else {
+                  router.push({ name: 'home' })
+                }
+              }
+            }
           } catch (err) {
             googleError.value = err instanceof Error ? err.message : 'Sign-in failed'
           } finally {
@@ -119,7 +163,13 @@ function onPhoneVerified(data: VerifyOtpResponse) {
   authStore.setSessionExpiry()
   authStore.setLoggedIn(true)
   showPhoneModal.value = false
-  router.push({ name: 'home' })
+  // Redirect to the intended page or home
+  const redirect = route.query.redirect as string | undefined
+  if (redirect) {
+    router.push(redirect)
+  } else {
+    router.push({ name: 'home' })
+  }
 }
 
 function onPhoneModalClose() {
