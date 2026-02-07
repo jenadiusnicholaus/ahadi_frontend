@@ -16,6 +16,8 @@ const loading = ref(true)
 const error = ref<Error | null>(null)
 const showContributeDialog = ref(false)
 const showJoinDialog = ref(false)
+const customAmount = ref<number | null>(null)
+const customAmountInput = ref<string>('')
 
 const eventId = computed(() => {
   const id = route.params.id
@@ -121,6 +123,20 @@ function openContribute() {
   showContributeDialog.value = true
 }
 
+function openContributeWithAmount(amount: number | null) {
+  if (amount && amount > 0) {
+    customAmount.value = amount
+  }
+  showContributeDialog.value = true
+}
+
+function handleCustomDonate() {
+  const amt = Number(customAmountInput.value) || 0
+  if (amt > 0) {
+    openContributeWithAmount(amt)
+  }
+}
+
 function openJoin() {
   showJoinDialog.value = true
 }
@@ -167,78 +183,148 @@ function copyShareToClipboard(text: string, url: string) {
       </div>
 
       <template v-else-if="event">
-        <button type="button" class="back-link" aria-label="Go back" @click="goBack">
-          <span class="back-icon" aria-hidden="true">←</span>
-          Back
-        </button>
+        <!-- Breadcrumbs -->
+        <nav class="breadcrumbs">
+          <button type="button" class="breadcrumb-link" @click="router.push({ name: 'home' })">Home</button>
+          <span class="breadcrumb-separator">/</span>
+          <button type="button" class="breadcrumb-link" @click="goBack">Events</button>
+          <span class="breadcrumb-separator">/</span>
+          <span class="breadcrumb-current">{{ event.title }}</span>
+        </nav>
 
-        <!-- Cover -->
-        <div class="cover-wrap">
-          <img
-            v-if="coverImageUrl"
-            :src="coverImageUrl"
-            :alt="event.title"
-            class="cover-image"
-            @error="($event.target as HTMLImageElement)?.classList?.add('img-error')"
-          />
-          <div v-else class="cover-placeholder">
-            <span>No image</span>
-          </div>
-          <div class="cover-badges">
-            <span v-if="event.event_type_name" class="badge-type">{{ event.event_type_name }}</span>
-          </div>
-        </div>
+        <!-- Two Column Layout -->
+        <div class="event-layout">
+          <!-- Left Column: Image and Story -->
+          <div class="event-left">
+            <h1 class="event-title">{{ event.title }}</h1>
+            <p class="event-subtitle">Help {{ event.title }} reach its goal</p>
 
-        <!-- Content -->
-        <div class="content-wrap">
-          <h1 class="page-title">{{ event.title }}</h1>
-          <p v-if="event.description" class="page-description">{{ event.description }}</p>
-
-          <!-- Details -->
-          <div class="details-block">
-            <div v-if="formattedStartDate" class="detail-item">
-              <span class="detail-icon">📅</span>
-              <span>{{ formattedStartDate }}</span>
+            <!-- Event Image -->
+            <div class="event-image-wrap">
+              <img
+                v-if="coverImageUrl"
+                :src="coverImageUrl"
+                :alt="event.title"
+                class="event-image"
+                @error="($event.target as HTMLImageElement)?.classList?.add('img-error')"
+              />
+              <div v-else class="event-image-placeholder">
+                <span>No image</span>
+              </div>
             </div>
-            <div v-if="event.location" class="detail-item">
-              <span class="detail-icon">📍</span>
-              <span>{{ event.location }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-icon">👥</span>
-              <span>{{ participantCount }} participating</span>
+
+            <!-- Story Section -->
+            <div class="story-section">
+              <h2 class="story-title">{{ event.title }}'s Story</h2>
+              <p v-if="event.description" class="story-text">{{ event.description }}</p>
+              <p v-else class="story-text">This event is organized to bring together family, friends, and loved ones in one shared digital space. Through Ahadi, guests can view event details, receive updates, share memories, confirm attendance, and stay connected before, during, and after the celebration — making the experience seamless, interactive, and memorable for everyone involved.</p>
             </div>
           </div>
 
-          <!-- Progress -->
-          <div v-if="contributionTarget > 0" class="progress-block">
-            <div class="progress-header">
-              <span class="progress-title">Progress</span>
-              <span class="progress-percent">{{ progressPercent }}%</span>
-            </div>
-            <div class="progress-bar-wrap">
-              <div class="progress-bar-fill" :style="{ width: progressPercent + '%' }" />
-            </div>
-            <div class="progress-amounts">
-              <span class="progress-current">{{ currency }}{{ formatAmount(totalContributions) }}</span>
-              <span class="progress-of">of {{ currency }}{{ formatAmount(contributionTarget) }}</span>
-            </div>
-          </div>
+          <!-- Right Column: Donation Widget -->
+          <div class="event-right">
+            <div class="donation-widget">
+              <!-- Progress Circle -->
+              <div v-if="contributionTarget > 0" class="progress-circle-section">
+                <div class="progress-circle-wrap">
+                  <svg class="progress-circle" viewBox="0 0 200 200">
+                    <circle
+                      class="progress-circle-bg"
+                      cx="100"
+                      cy="100"
+                      r="85"
+                      fill="none"
+                      stroke="#e5e7eb"
+                      stroke-width="14"
+                    />
+                    <circle
+                      class="progress-circle-fill"
+                      cx="100"
+                      cy="100"
+                      r="85"
+                      fill="none"
+                      stroke="#22c55e"
+                      stroke-width="14"
+                      :stroke-dasharray="2 * Math.PI * 85"
+                      :stroke-dashoffset="2 * Math.PI * 85 * (1 - progressPercent / 100)"
+                      transform="rotate(-90 100 100)"
+                    />
+                  </svg>
+                  <div class="progress-circle-text">
+                    <div class="progress-percent-large">{{ progressPercent }}%</div>
+                    <div class="progress-label">of funding raised</div>
+                  </div>
+                </div>
+                <div class="progress-amount-large">
+                  <div class="amount-raised">{{ currency }}{{ formatAmount(totalContributions) }}</div>
+                  <div class="amount-to-go">{{ currency }}{{ formatAmount(contributionTarget - totalContributions) }} to go</div>
+                </div>
+              </div>
 
-          <!-- Actions -->
-          <div class="actions-row">
-            <button type="button" class="btn btn-contribute" @click="openContribute">
-              <span class="btn-icon">❤️</span>
-              Contribute
-            </button>
-            <button type="button" class="btn btn-join" @click="openJoin">
-              <span class="btn-icon">👤</span>
-              Join
-            </button>
-            <button type="button" class="btn btn-share" @click="shareEvent">
-              <span class="btn-icon">📤</span>
-              Share Event
-            </button>
+              <!-- Preset Donation Amounts -->
+              <div class="preset-amounts">
+                <button
+                  v-for="amount in [20000, 60000, 120000, 250000]"
+                  :key="amount"
+                  type="button"
+                  class="preset-amount-btn"
+                  @click="openContributeWithAmount(amount)"
+                >
+                  {{ currency }}{{ formatAmount(amount) }}
+                </button>
+              </div>
+
+              <!-- Custom Donation Input -->
+              <div class="custom-donation">
+                <input
+                  v-model="customAmountInput"
+                  type="number"
+                  class="donation-input"
+                  :placeholder="`${currency} Contribute`"
+                  min="0"
+                  @keydown.enter="handleCustomDonate"
+                />
+                <button type="button" class="btn-donate" @click="handleCustomDonate">
+                  Contribute
+                </button>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="action-buttons">
+                <button type="button" class="btn-action btn-join-action" @click="openJoin">
+                  <span class="btn-action-icon">👤</span>
+                  Join
+                </button>
+                <button type="button" class="btn-action btn-share-action" @click="shareEvent">
+                  <span class="btn-action-icon">📤</span>
+                  Share Event
+                </button>
+              </div>
+
+              <!-- Contributors List -->
+              <div class="contributors-section">
+                <h3 class="contributors-title">{{ participantCount }} Contributors</h3>
+                <div class="contributors-avatars">
+                  <!-- Placeholder avatars - would be replaced with actual contributor data -->
+                  <div v-for="i in Math.min(participantCount, 7)" :key="i" class="contributor-avatar">
+                    {{ String.fromCharCode(64 + i) }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Supporters Section -->
+              <div class="supporters-section">
+                <div class="supporters-header">
+                  <span class="supporters-icon">❤️</span>
+                  <h3 class="supporters-title">Supporters</h3>
+                </div>
+                <!-- Placeholder supporter - would be replaced with actual data -->
+                <div class="supporter-item">
+                  <div class="supporter-name">Event Organizer</div>
+                  <div class="supporter-amount">{{ currency }}{{ formatAmount(totalContributions || 0) }} {{ formattedStartDate ? formattedStartDate.split(',')[0] : '' }}</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </template>
@@ -247,8 +333,9 @@ function copyShareToClipboard(text: string, url: string) {
     <ContributeDialog
       :event="event"
       :open="showContributeDialog"
-      @close="showContributeDialog = false"
-      @success="showContributeDialog = false"
+      :initial-amount="customAmount"
+      @close="showContributeDialog = false; customAmount = null"
+      @success="showContributeDialog = false; customAmount = null"
     />
     <JoinDialog
       :event="event"
@@ -262,226 +349,452 @@ function copyShareToClipboard(text: string, url: string) {
 <style scoped>
 .public-event-page {
   min-height: 100vh;
-  background: #f5f2ed;
+  background: #fff;
 }
 
 .public-event-main {
-  max-width: 720px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 20px 24px 48px;
+  padding: 100px 32px 48px;
 }
 
-.back-link {
-  display: inline-flex;
+/* Breadcrumbs */
+.breadcrumbs {
+  display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 20px;
-  padding: 8px 0;
-  background: none;
-  border: none;
-  font-size: 1rem;
-  color: #374151;
-  cursor: pointer;
-  font-family: inherit;
+  margin-top: 0;
+  margin-bottom: 24px;
+  padding-top: 0;
+  font-size: 0.875rem;
 }
 
-.back-link:hover {
+.breadcrumb-link {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.breadcrumb-link:hover {
+  text-decoration: underline;
+}
+
+.breadcrumb-separator {
+  color: #9ca3af;
+}
+
+.breadcrumb-current {
   color: #111827;
 }
 
-.back-icon {
-  font-size: 1.25rem;
+/* Two Column Layout */
+.event-layout {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 48px;
+  align-items: start;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
-.cover-wrap {
-  position: relative;
-  border-radius: 16px;
+@media (max-width: 1024px) {
+  .event-layout {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+}
+
+/* Left Column */
+.event-left {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.event-title {
+  margin: 0;
+  margin-top: 0;
+  padding-top: 0;
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.2;
+  margin-bottom: 0.75rem;
+}
+
+.event-subtitle {
+  margin: 0;
+  font-size: 1rem;
+  color: #6b7280;
+  font-weight: 400;
+  margin-bottom: 1.5rem;
+}
+
+.event-image-wrap {
+  width: 90%;
+  border-radius: 12px;
   overflow: hidden;
-  margin-bottom: 24px;
-  aspect-ratio: 16 / 9;
   background: #e5e7eb;
+  margin-bottom: 2rem;
 }
 
-.cover-image {
+.event-image {
   width: 100%;
-  height: 100%;
+  height: auto;
+  display: block;
   object-fit: cover;
 }
 
-.cover-image.img-error {
+.event-image.img-error {
   display: none;
 }
 
-.cover-placeholder {
+.event-image-placeholder {
   width: 100%;
-  height: 100%;
+  aspect-ratio: 4 / 3;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6b7280;
+  color: #9ca3af;
   font-size: 1rem;
 }
 
-.cover-badges {
-  position: absolute;
-  top: 12px;
-  right: 12px;
+.story-section {
+  margin-top: 2rem;
 }
 
-.badge-type {
-  display: inline-block;
-  padding: 6px 12px;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  border-radius: 20px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-}
-
-.content-wrap {
-  background: #fff;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-}
-
-.page-title {
-  margin: 0 0 12px;
-  font-size: 1.75rem;
+.story-title {
+  margin: 0 0 1rem;
+  font-size: 1.2rem;
   font-weight: 700;
-  color: #1a1a2e;
-}
-
-.page-description {
-  margin: 0 0 20px;
-  font-size: 1rem;
-  color: #6b7280;
-  line-height: 1.6;
-}
-
-.details-block {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.detail-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 0.9375rem;
-  color: #374151;
-}
-
-.detail-icon {
-  font-size: 1.125rem;
-}
-
-.progress-block {
-  margin-bottom: 28px;
-}
-
-.progress-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.progress-title {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: #374151;
-}
-
-.progress-percent {
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: #16a34a;
-}
-
-.progress-bar-wrap {
-  height: 8px;
-  background: #e5e7eb;
-  border-radius: 4px;
-  overflow: hidden;
-  margin-bottom: 8px;
-}
-
-.progress-bar-fill {
-  height: 100%;
-  background: #16a34a;
-  border-radius: 4px;
-  transition: width 0.3s ease;
-}
-
-.progress-amounts {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.875rem;
-  color: #6b7280;
-}
-
-.progress-current {
-  font-weight: 600;
   color: #111827;
 }
 
-.actions-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.actions-row .btn {
-  flex: 1;
-  min-width: 120px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 14px 20px;
+.story-text {
+  margin: 0;
   font-size: 1rem;
-  font-weight: 600;
-  border-radius: 12px;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.2s;
+  color: #374151;
+  line-height: 1.7;
 }
 
-.btn-contribute {
+/* Right Column - Donation Widget */
+.event-right {
+  position: sticky;
+  top: 100px;
+}
+
+.donation-widget {
+  background: #fff;
+  border: 2px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 2rem 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* Progress Circle */
+.progress-circle-section {
+  margin-bottom: 0;
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+  text-align: center;
+}
+
+.progress-circle-wrap {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 16px;
+}
+
+.progress-circle {
+  width: 200px;
+  height: 200px;
+  transform: rotate(-90deg);
+}
+
+.progress-circle-bg {
+  stroke: #e5e7eb;
+  stroke-width: 14;
+}
+
+.progress-circle-fill {
+  stroke: #22c55e;
+  stroke-width: 14;
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+.progress-circle-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.progress-percent-large {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #22c55e;
+  line-height: 1.2;
+}
+
+.progress-label {
+  font-size: 0.9375rem;
+  color: #6b7280;
+  margin-top: 8px;
+}
+
+.progress-amount-large {
+  text-align: center;
+}
+
+.amount-raised {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+.amount-to-go {
+  font-size: 1rem;
+  color: #6b7280;
+}
+
+/* Preset Amounts */
+.preset-amounts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.preset-amount-btn {
+  padding: 0.875rem 1rem;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 44px;
+}
+
+.preset-amount-btn:hover {
+  border-color: #22c55e;
+  background: #f0fdf4;
+  color: #22c55e;
+}
+
+/* Fully Fund Button */
+.btn-fully-fund {
+  width: 90%;
+  padding: 1rem 1.25rem;
   background: #22c55e;
   color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin: 0 auto 1rem;
+  display: block;
+  transition: background 0.2s;
+  min-height: 48px;
 }
 
-.btn-contribute:hover {
+.btn-fully-fund:hover {
   background: #16a34a;
 }
 
-.btn-join {
+/* Custom Donation */
+.custom-donation {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.donation-input {
+  flex: 0.7;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  min-height: 44px;
+}
+
+.btn-donate {
+  flex: 0.3;
+  padding: 0.75rem 1rem;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 44px;
+}
+
+.donation-input:focus {
+  outline: none;
+  border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+}
+
+.btn-donate:hover {
+  border-color: #22c55e;
+  color: #22c55e;
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.btn-action {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  min-height: 44px;
+}
+
+.btn-action-icon {
+  font-size: 1.125rem;
+}
+
+.btn-join-action {
   background: #1a283b;
   color: #fff;
 }
 
-.btn-join:hover {
+.btn-join-action:hover {
   background: #2d3a4f;
 }
 
-.btn-share {
+.btn-share-action {
   background: #fff;
   color: #374151;
   border: 2px solid #e5e7eb;
 }
 
-.btn-share:hover {
+.btn-share-action:hover {
   background: #f9fafb;
   border-color: #d1d5db;
 }
 
-.btn-icon {
+/* Contributors Section */
+.contributors-section {
+  margin-bottom: 0;
+  padding-top: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.contributors-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.contributors-avatars {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.contributor-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* Supporters Section */
+.supporters-section {
+  margin-top: 1.5rem;
+}
+
+.supporters-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.supporters-icon {
   font-size: 1.125rem;
+}
+
+.supporters-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.supporter-item {
+  margin-bottom: 12px;
+}
+
+.supporter-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.supporter-amount {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .public-event-main {
+    padding: 16px 20px 32px;
+  }
+
+  .event-title {
+    font-size: 1.75rem;
+  }
+
+  .event-subtitle {
+    font-size: 1rem;
+  }
+
+  .donation-widget {
+    padding: 20px;
+  }
+
+  .preset-amounts {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* States */

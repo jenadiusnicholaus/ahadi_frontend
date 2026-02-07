@@ -94,10 +94,11 @@ const SUPPORT_LINKS = [
 <style scoped>
 .footer {
   width: 100%;
-  background: #212121;
-  padding: 48px 24px;
+  background: linear-gradient(180deg, #1a1a1e 0%, #141418 100%);
+  padding: 56px 24px 48px;
   box-sizing: border-box;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 @media (max-width: 768px) {

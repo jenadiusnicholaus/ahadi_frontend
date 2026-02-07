@@ -6,6 +6,7 @@ import type { PublicEvent } from '@/types/events'
 const props = defineProps<{
   event: PublicEvent | null
   open: boolean
+  initialAmount?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -77,6 +78,18 @@ async function fetchFee() {
 }
 
 watch([selectedProvider, amount], () => { fetchFee() })
+
+watch(() => props.initialAmount, (val) => {
+  if (val && val > 0 && props.open) {
+    amount.value = String(val)
+  }
+}, { immediate: true })
+
+watch(() => props.open, (isOpen) => {
+  if (isOpen && props.initialAmount && props.initialAmount > 0) {
+    amount.value = String(props.initialAmount)
+  }
+})
 
 function validate(): boolean {
   error.value = ''
