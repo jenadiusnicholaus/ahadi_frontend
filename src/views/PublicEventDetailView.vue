@@ -5,7 +5,6 @@ import { storeToRefs } from 'pinia'
 import WebNavbar from '@/components/WebNavbar.vue'
 import { assetUrl } from '@/api/client'
 import { fetchEventById, fetchEventParticipants, fetchEventContributions } from '@/api/event'
-import ContributeDialog from '@/components/ContributeDialog.vue'
 import JoinDialog from '@/components/JoinDialog.vue'
 import { useAuthStore } from '@/stores/auth'
 import type { PublicEvent } from '@/types/events'
@@ -31,10 +30,8 @@ const isOwner = computed(() => {
 const event = ref<PublicEvent | null>(null)
 const loading = ref(true)
 const error = ref<Error | null>(null)
-const showContributeDialog = ref(false)
 const showJoinDialog = ref(false)
 const customAmountInput = ref<string>('')
-const contributeInitialAmount = ref<number | null>(null)
 const participants = ref<Array<{ name?: string; profile_image?: string; avatar?: string; image?: string }>>([])
 const contributions = ref<Array<{ display_name?: string; participant_name?: string; contributor_name?: string; participant_image?: string; contributor_image?: string }>>([])
 
@@ -275,19 +272,18 @@ function setPresetAmount(amount: number) {
   customAmountInput.value = String(amount)
 }
 
-/** Opening the dialog only when user clicks Contribute (with current amount pre-filled) */
-function openContributeWithAmount(amount: number | null) {
-  if (amount != null && amount > 0) {
-    contributeInitialAmount.value = amount
-  } else {
-    const fromInput = Number(String(customAmountInput.value).replace(/\D/g, '')) || 0
-    contributeInitialAmount.value = fromInput > 0 ? fromInput : null
-  }
-  showContributeDialog.value = true
+/** Go to full-page contribute (no dialog); pass current amount so the page can pre-fill */
+function goToContribute() {
+  const amt = Number(String(customAmountInput.value).replace(/\D/g, '')) || 0
+  router.push({
+    name: 'event-contribute',
+    params: { id: String(eventId.value) },
+    query: amt > 0 ? { amount: String(amt) } : {},
+  })
 }
 
 function handleCustomDonate() {
-  openContributeWithAmount(null)
+  goToContribute()
 }
 
 function openJoin() {
@@ -688,13 +684,6 @@ const shareCardTagline = computed(() => {
       </template>
     </main>
 
-    <ContributeDialog
-      :event="event"
-      :open="showContributeDialog"
-      :initial-amount="contributeInitialAmount"
-      @close="showContributeDialog = false; contributeInitialAmount = null"
-      @success="showContributeDialog = false; contributeInitialAmount = null; loadEvent(); loadContributions()"
-    />
     <JoinDialog
       :event="event"
       :open="showJoinDialog"

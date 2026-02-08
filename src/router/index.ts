@@ -17,6 +17,7 @@ import WalletView from '@/views/WalletView.vue'
 import TransactionsView from '@/views/TransactionsView.vue'
 import SubscriptionsView from '@/views/SubscriptionsView.vue'
 import PublicEventDetailView from '@/views/PublicEventDetailView.vue'
+import EventContributeView from '@/views/EventContributeView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -30,6 +31,11 @@ const router = createRouter({
       path: '/event/:id',
       name: 'event-public',
       component: PublicEventDetailView,
+    },
+    {
+      path: '/event/:id/contribute',
+      name: 'event-contribute',
+      component: EventContributeView,
     },
     {
       path: '/login',
