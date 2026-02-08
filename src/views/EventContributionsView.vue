@@ -264,7 +264,7 @@ function goBack() {
           </div>
           <ul v-else class="list contributions-list">
             <li v-for="c in filteredByStatus" :key="c.id" class="card contribution-card">
-              <span class="avatar">{{ contributorName(c)[0].toUpperCase() }}</span>
+              <span class="avatar">{{ (contributorName(c) || 'U').charAt(0).toUpperCase() }}</span>
               <div class="body">
                 <span class="name">{{ contributorName(c) }}</span>
                 <span class="date">{{ formatDate(c.created_at) }}</span>
@@ -292,7 +292,7 @@ function goBack() {
               :key="entry[0]"
               class="card contributor-card"
             >
-              <span class="avatar" :class="{ rank: index < 3 }">{{ entry[0][0].toUpperCase() }}</span>
+              <span class="avatar" :class="{ rank: index < 3 }">{{ (entry[0] || 'U').charAt(0).toUpperCase() }}</span>
               <div class="body">
                 <span class="name">{{ entry[0] }}</span>
                 <span class="count">{{ entry[1].length }} contribution(s)</span>

@@ -21,8 +21,8 @@ function onScroll() {
 }
 
 const userInitial = computed(() => {
-  const name = user.value?.full_name ?? ''
-  return name.length > 0 ? name[0].toUpperCase() : 'U'
+  const name = user.value?.full_name
+  return name && typeof name === 'string' && name.length > 0 ? name.charAt(0).toUpperCase() : 'U'
 })
 
 function goToAccount() {
