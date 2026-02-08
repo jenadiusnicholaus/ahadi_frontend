@@ -423,7 +423,7 @@ function formatParticipantAmount(value: string): string {
           </div>
           <ul v-else class="participants-list">
             <li v-for="p in recentParticipants" :key="p.id" class="participant-item">
-              <span class="participant-avatar">{{ (p.name || '?')[0].toUpperCase() }}</span>
+              <span class="participant-avatar">{{ (p.name || '?').charAt(0).toUpperCase() }}</span>
               <div class="participant-info">
                 <span class="participant-name">{{ p.name || 'Anonymous' }}</span>
                 <span class="participant-amount">{{ currency }} {{ formatParticipantAmount(p.total_contributions) }}</span>

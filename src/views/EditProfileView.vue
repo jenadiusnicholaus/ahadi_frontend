@@ -32,7 +32,7 @@ const profilePictureUrl = computed(() => {
 
 const initial = computed(() => {
   const name = fullName.value || (displayUser.value?.full_name as string)
-  return name && name.length ? name[0].toUpperCase() : 'U'
+  return name && name.length > 0 ? name[0].toUpperCase() : 'U'
 })
 
 async function loadProfile() {

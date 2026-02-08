@@ -151,7 +151,7 @@ function goBack() {
         <ul v-else class="participants-list">
           <li v-for="p in filteredList" :key="p.id" class="card participant-card">
             <div class="avatar-wrap">
-              <span class="avatar">{{ (p.name || '?')[0].toUpperCase() }}</span>
+              <span class="avatar">{{ (p.name || '?').charAt(0).toUpperCase() }}</span>
               <span
                 class="status-dot"
                 :style="{ backgroundColor: statusColor(p.status) }"
