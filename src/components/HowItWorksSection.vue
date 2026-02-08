@@ -77,9 +77,21 @@ const STEPS = [
   overflow-x: hidden;
 }
 
+@media (max-width: 1024px) {
+  .how-it-works {
+    padding: 64px 24px 80px;
+  }
+}
+
 @media (max-width: 768px) {
   .how-it-works {
-    padding: 56px 20px 64px;
+    padding: 48px 16px 56px;
+  }
+}
+
+@media (max-width: 480px) {
+  .how-it-works {
+    padding: 40px 12px 48px;
   }
 }
 

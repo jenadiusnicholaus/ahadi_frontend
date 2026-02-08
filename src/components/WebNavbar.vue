@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
@@ -88,20 +88,62 @@ function onDocumentClick(e: MouseEvent) {
   }
 }
 
+function handleResize() {
+  if (typeof window !== 'undefined' && window.innerWidth > 768 && menuOpen.value) {
+    menuOpen.value = false
+  }
+}
+
 onMounted(() => {
   document.addEventListener('click', onDocumentClick)
   onScroll()
   window.addEventListener('scroll', onScroll, { passive: true })
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', handleResize)
+  }
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocumentClick)
   window.removeEventListener('scroll', onScroll)
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', handleResize)
+  }
+  if (typeof document !== 'undefined') {
+    document.body.style.overflow = ''
+  }
 })
 
 const isSearching = ref(false)
 const searchQuery = ref('')
 const menuOpen = ref(false)
+
+// Toggle mobile menu (only works on mobile)
+function toggleMobileMenu() {
+  if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+    menuOpen.value = !menuOpen.value
+  } else {
+    menuOpen.value = false
+  }
+}
+
+// Prevent body scroll when mobile menu is open (only on mobile)
+watch(menuOpen, (isOpen) => {
+  if (typeof document !== 'undefined' && typeof window !== 'undefined' && window.innerWidth <= 768) {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+  } else if (typeof document !== 'undefined' && typeof window !== 'undefined') {
+    // On desktop, ensure menu is closed
+    if (isOpen) {
+      menuOpen.value = false
+    }
+  }
+})
+
+
 
 const sectionIds = {
   discover: 'discover',
@@ -198,7 +240,7 @@ function onSearchSubmit() {
         class="hamburger"
         aria-label="Toggle menu"
         :aria-expanded="menuOpen"
-        @click="menuOpen = !menuOpen"
+        @click="toggleMobileMenu"
       >
         <span class="hamburger-line" />
         <span class="hamburger-line" />
@@ -206,10 +248,11 @@ function onSearchSubmit() {
       </button>
     </div>
 
-    <!-- Mobile menu (drawer from right) -->
+    <!-- Mobile menu (drawer from right) - Only visible on mobile -->
     <Transition name="mobile-drawer">
       <div
         v-show="menuOpen"
+        v-if="menuOpen"
         class="mobile-drawer-overlay"
         role="dialog"
         aria-label="Navigation menu"
@@ -239,7 +282,7 @@ function onSearchSubmit() {
           </div>
 
           <div class="mobile-drawer-body">
-          <!-- When logged in: circular avatar + username + email -->
+            <!-- When logged in: circular avatar + username + email -->
           <div v-if="isLoggedIn" class="mobile-drawer-user">
             <div class="mobile-drawer-avatar">{{ userInitial }}</div>
             <div class="mobile-drawer-user-info">
@@ -276,34 +319,35 @@ function onSearchSubmit() {
             </button>
           </nav>
 
-          <!-- Main nav links with icons and separators -->
-          <nav class="mobile-nav">
-            <button type="button" class="mobile-nav-link" @click="scrollToSection(sectionIds.discover)">
-              <span class="mobile-nav-icon">
+          <!-- Main nav links with icons and separators - ALWAYS VISIBLE -->
+          <nav class="mobile-nav mobile-nav-main" style="display: flex !important; visibility: visible !important; opacity: 1 !important;">
+            <button type="button" class="mobile-nav-link" @click="scrollToSection(sectionIds.discover); menuOpen = false" style="display: flex !important; visibility: visible !important; opacity: 1 !important;">
+              <span class="mobile-nav-icon" style="display: flex !important; visibility: visible !important;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m16.24 7.76 2.83-2.83"/><path d="m7.76 16.24-2.83 2.83"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/></svg>
               </span>
-              <span>Discover</span>
+              <span style="display: inline-block !important; visibility: visible !important;">Discover</span>
             </button>
-            <button type="button" class="mobile-nav-link" @click="scrollToSection(sectionIds.howItWorks)">
-              <span class="mobile-nav-icon">
+            <button type="button" class="mobile-nav-link" @click="scrollToSection(sectionIds.howItWorks); menuOpen = false" style="display: flex !important; visibility: visible !important; opacity: 1 !important;">
+              <span class="mobile-nav-icon" style="display: flex !important; visibility: visible !important;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
               </span>
-              <span>How It Works</span>
+              <span style="display: inline-block !important; visibility: visible !important;">How It Works</span>
             </button>
-            <button type="button" class="mobile-nav-link" @click="scrollToSection(sectionIds.pricing)">
-              <span class="mobile-nav-icon">
+            <button type="button" class="mobile-nav-link" @click="scrollToSection(sectionIds.pricing); menuOpen = false" style="display: flex !important; visibility: visible !important; opacity: 1 !important;">
+              <span class="mobile-nav-icon" style="display: flex !important; visibility: visible !important;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
               </span>
-              <span>Pricing</span>
+              <span style="display: inline-block !important; visibility: visible !important;">Pricing</span>
             </button>
-            <button type="button" class="mobile-nav-link" @click="scrollToSection(sectionIds.about)">
-              <span class="mobile-nav-icon">
+            <button type="button" class="mobile-nav-link" @click="scrollToSection(sectionIds.about); menuOpen = false" style="display: flex !important; visibility: visible !important; opacity: 1 !important;">
+              <span class="mobile-nav-icon" style="display: flex !important; visibility: visible !important;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
               </span>
-              <span>About</span>
+              <span style="display: inline-block !important; visibility: visible !important;">About</span>
             </button>
           </nav>
-        <div class="mobile-search-wrap">
+          
+          <div class="mobile-search-wrap">
           <div v-if="isSearching" class="search-box mobile-search-box">
             <span class="search-icon">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -622,22 +666,63 @@ function onSearchSubmit() {
 
 /* ----- Mobile menu (drawer from right to left) ----- */
 .mobile-drawer-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 9999 !important;
+  display: none !important; /* Hidden by default */
   justify-content: flex-end;
-  background: rgba(0, 0, 0, 0.4);
+  align-items: stretch;
+  background: rgba(0, 0, 0, 0.7) !important;
+  backdrop-filter: blur(8px);
+  overflow: hidden;
+  pointer-events: auto;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Only show drawer on mobile/tablet */
+@media (max-width: 768px) {
+  .mobile-drawer-overlay {
+    display: flex !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .mobile-drawer-overlay {
+    background: rgba(0, 0, 0, 0.6);
+  }
 }
 
 .mobile-drawer-panel {
   width: min(320px, 85vw);
   max-width: 100%;
-  height: 100%;
-  display: flex;
+  height: 100vh !important;
+  min-height: 100vh !important;
+  max-height: 100vh !important;
+  display: flex !important;
   flex-direction: column;
-  background: #f3f4f6;
-  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.25);
+  background: #ffffff !important;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  position: relative;
+  z-index: 10000 !important;
+  isolation: isolate;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  pointer-events: auto;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+@media (max-width: 480px) {
+  .mobile-drawer-panel {
+    width: min(300px, 90vw);
+  }
 }
 
 .mobile-drawer-header {
@@ -645,9 +730,11 @@ function onSearchSubmit() {
   align-items: center;
   justify-content: space-between;
   padding: 16px;
-  background: #f3f4f6;
+  background: #ffffff !important;
   border-bottom: 1px solid #e5e7eb;
   flex-shrink: 0;
+  position: relative;
+  z-index: 10;
 }
 
 .mobile-drawer-brand {
@@ -703,7 +790,24 @@ function onSearchSubmit() {
 .mobile-drawer-body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
+  display: flex !important;
+  flex-direction: column;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 16px;
+  position: relative;
+  z-index: 1;
+  background: #ffffff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.mobile-drawer-body > * {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  background: transparent;
 }
 
 .mobile-drawer-user {
@@ -769,28 +873,54 @@ function onSearchSubmit() {
   transform: translateX(100%);
 }
 
+/* Prevent body scroll when drawer is open */
+body:has(.mobile-drawer-overlay[style*="display: flex"]) {
+  overflow: hidden;
+}
+
 .mobile-nav {
-  display: flex;
+  display: flex !important;
   flex-direction: column;
   margin-bottom: 0;
-  padding: 0 16px;
-  background: #f3f4f6;
+  padding: 8px 16px;
+  background: #ffffff !important;
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 10 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.mobile-nav-main {
+  margin-top: 0;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .mobile-nav-link {
-  display: flex;
+  display: flex !important;
   align-items: center;
   gap: 12px;
   width: 100%;
   padding: 14px 0;
   font-size: 15px;
   font-weight: 500;
-  color: #374151;
+  color: #374151 !important;
   background: none;
   border: none;
   border-bottom: 1px solid #e5e7eb;
   text-align: left;
   cursor: pointer;
+  font-family: inherit;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.mobile-nav-link span {
+  display: inline-block;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
 .mobile-nav-link:last-of-type {
@@ -798,18 +928,44 @@ function onSearchSubmit() {
 }
 
 .mobile-nav-link:hover {
-  color: #1e3a5f;
+  color: #1e3a5f !important;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.mobile-nav-link:active {
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .mobile-nav-icon {
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: center;
-  color: #6b7280;
+  color: #6b7280 !important;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
 .mobile-nav-link:hover .mobile-nav-icon {
-  color: #1e3a5f;
+  color: #1e3a5f !important;
+}
+
+@media (max-width: 480px) {
+  .mobile-nav {
+    padding: 6px 12px;
+  }
+  
+  .mobile-nav-link {
+    padding: 12px 0;
+    font-size: 14px;
+  }
+  
+  .mobile-nav-icon {
+    width: 18px;
+    height: 18px;
+  }
 }
 
 .mobile-nav-account {

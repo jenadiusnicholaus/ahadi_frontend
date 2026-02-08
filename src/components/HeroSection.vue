@@ -487,6 +487,17 @@ onMounted(() => {
   z-index: 2;
 }
 
+/* Ensure hero content doesn't appear above mobile drawer */
+@media (max-width: 967px) {
+  .hero-container {
+    z-index: 1;
+  }
+  
+  .metrics-flowchart {
+    z-index: 1 !important;
+  }
+}
+
 .hero-container {
   max-width: 1400px;
   margin: 0 auto;
@@ -624,9 +635,38 @@ onMounted(() => {
 
 @media (max-width: 640px) {
   .hero-heading {
-    font-size: 32px;
-    line-height: 1.12;
-    margin-bottom: 16px;
+    font-size: 28px;
+    line-height: 1.15;
+    margin-bottom: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-heading {
+    font-size: 24px;
+    line-height: 1.2;
+  }
+  
+  .hero-label {
+    font-size: 11px;
+    margin-bottom: 8px;
+  }
+  
+  .hero-subtext {
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
+  
+  .hero-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 10px;
+  }
+  
+  .btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 

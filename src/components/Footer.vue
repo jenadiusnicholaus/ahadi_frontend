@@ -98,6 +98,24 @@ const SUPPORT_LINKS = [
   padding: 56px 24px 48px;
   box-sizing: border-box;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+@media (max-width: 1024px) {
+  .footer {
+    padding: 48px 20px 40px;
+  }
+}
+
+@media (max-width: 768px) {
+  .footer {
+    padding: 40px 16px 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  .footer {
+    padding: 32px 12px 24px;
+  }
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 

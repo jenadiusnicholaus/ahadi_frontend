@@ -90,10 +90,22 @@ main {
   border-radius: 24px 24px 0 0;
 }
 
+@media (max-width: 1024px) {
+  main {
+    padding: 0 24px 40px;
+  }
+}
+
 @media (max-width: 768px) {
   main {
-    padding: 0 20px 32px;
+    padding: 0 16px 24px;
     border-radius: 20px 20px 0 0;
+  }
+}
+
+@media (max-width: 480px) {
+  main {
+    padding: 0 12px 20px;
   }
 }
 

@@ -83,15 +83,33 @@ function onCardClick(event: PublicEvent) {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+@media (max-width: 1024px) {
+  .discover-section {
+    padding: 24px 20px 40px;
+  }
+}
+
 @media (max-width: 768px) {
   .discover-section {
-    padding: 24px 20px 32px;
+    padding: 20px 16px 32px;
   }
   .section-spacer {
     height: 16px;
   }
   .events-grid {
     grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .discover-section {
+    padding: 16px 12px 24px;
+  }
+  .section-title {
+    font-size: 22px;
+  }
+  .events-grid {
     gap: 12px;
   }
 }
@@ -156,15 +174,24 @@ function onCardClick(event: PublicEvent) {
   display: grid;
   gap: 24px;
   grid-template-columns: 1fr;
+  width: 100%;
 }
 
 @media (min-width: 640px) {
   .events-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
   }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 968px) {
+  .events-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+}
+
+@media (min-width: 1200px) {
   .events-grid {
     grid-template-columns: repeat(4, 1fr);
     gap: 28px;
