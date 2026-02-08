@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { logoutApi } from '@/api/auth'
@@ -8,9 +8,17 @@ import { getRefreshToken } from '@/api/token'
 import { APP_NAME } from '@/config/app'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const { isLoggedIn, user } = storeToRefs(authStore)
 const showAccountMenu = ref(false)
+
+const SCROLL_THRESHOLD = 60
+const isScrolled = ref(false)
+
+function onScroll() {
+  isScrolled.value = window.scrollY > SCROLL_THRESHOLD
+}
 
 const userInitial = computed(() => {
   const name = user.value?.full_name ?? ''
@@ -80,17 +88,62 @@ function onDocumentClick(e: MouseEvent) {
   }
 }
 
+function handleResize() {
+  if (typeof window !== 'undefined' && window.innerWidth > 768 && menuOpen.value) {
+    menuOpen.value = false
+  }
+}
+
 onMounted(() => {
   document.addEventListener('click', onDocumentClick)
+  onScroll()
+  window.addEventListener('scroll', onScroll, { passive: true })
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', handleResize)
+  }
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocumentClick)
+  window.removeEventListener('scroll', onScroll)
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', handleResize)
+  }
+  if (typeof document !== 'undefined') {
+    document.body.style.overflow = ''
+  }
 })
 
 const isSearching = ref(false)
 const searchQuery = ref('')
 const menuOpen = ref(false)
+
+// Toggle mobile menu (only works on mobile)
+function toggleMobileMenu() {
+  if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+    menuOpen.value = !menuOpen.value
+  } else {
+    menuOpen.value = false
+  }
+}
+
+// Prevent body scroll when mobile menu is open (only on mobile)
+watch(menuOpen, (isOpen) => {
+  if (typeof document !== 'undefined' && typeof window !== 'undefined' && window.innerWidth <= 768) {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+  } else if (typeof document !== 'undefined' && typeof window !== 'undefined') {
+    // On desktop, ensure menu is closed
+    if (isOpen) {
+      menuOpen.value = false
+    }
+  }
+})
+
+
 
 const sectionIds = {
   discover: 'discover',
@@ -100,14 +153,56 @@ const sectionIds = {
 } as const
 
 function scrollToSection(sectionId: string) {
-  const el = document.getElementById(sectionId)
-  el?.scrollIntoView({ behavior: 'smooth' })
   menuOpen.value = false
+  
+  // If we're on the home page, scroll directly to the section
+  if (route.name === 'home') {
+    // Use nextTick to ensure DOM is ready
+    nextTick(() => {
+      const el = document.getElementById(sectionId)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' })
+      }
+    })
+  } else {
+    // If we're on a different page, navigate to home with hash
+    router.push({ name: 'home', hash: `#${sectionId}` }).then(() => {
+      // After navigation, scroll to the section
+      nextTick(() => {
+        const el = document.getElementById(sectionId)
+        if (el) {
+          // Small delay to ensure page has rendered
+          setTimeout(() => {
+            el.scrollIntoView({ behavior: 'smooth' })
+          }, 100)
+        }
+      })
+    })
+  }
 }
 
 function goToHome() {
-  router.push({ name: 'home' })
   menuOpen.value = false
+  
+  // If we're on the home page, scroll to hero section
+  if (route.name === 'home') {
+    nextTick(() => {
+      const el = document.getElementById('hero')
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' })
+        // Scroll to top of hero section
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+    })
+  } else {
+    // If we're on a different page, navigate to home
+    router.push({ name: 'home' }).then(() => {
+      nextTick(() => {
+        // Scroll to top of page (hero section)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      })
+    })
+  }
 }
 
 function openSearch() {
@@ -126,7 +221,7 @@ function onSearchSubmit() {
 </script>
 
 <template>
-  <header class="navbar">
+  <header class="navbar" :class="{ 'navbar-scrolled': isScrolled }">
     <!-- Mobile header: logo + name + hamburger -->
     <div class="navbar-mobile">
       <button type="button" class="mobile-logo-wrap" @click="goToHome">
@@ -145,7 +240,7 @@ function onSearchSubmit() {
         class="hamburger"
         aria-label="Toggle menu"
         :aria-expanded="menuOpen"
-        @click="menuOpen = !menuOpen"
+        @click="toggleMobileMenu"
       >
         <span class="hamburger-line" />
         <span class="hamburger-line" />
@@ -153,10 +248,11 @@ function onSearchSubmit() {
       </button>
     </div>
 
-    <!-- Mobile menu (drawer from right) -->
+    <!-- Mobile menu (drawer from right) - Only visible on mobile -->
     <Transition name="mobile-drawer">
       <div
         v-show="menuOpen"
+        v-if="menuOpen"
         class="mobile-drawer-overlay"
         role="dialog"
         aria-label="Navigation menu"
@@ -186,7 +282,7 @@ function onSearchSubmit() {
           </div>
 
           <div class="mobile-drawer-body">
-          <!-- When logged in: circular avatar + username + email -->
+            <!-- When logged in: circular avatar + username + email -->
           <div v-if="isLoggedIn" class="mobile-drawer-user">
             <div class="mobile-drawer-avatar">{{ userInitial }}</div>
             <div class="mobile-drawer-user-info">
@@ -223,40 +319,35 @@ function onSearchSubmit() {
             </button>
           </nav>
 
-          <!-- Main nav links with icons and separators -->
-          <nav class="mobile-nav">
-            <button type="button" class="mobile-nav-link" @click="goToHome">
-              <span class="mobile-nav-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
-              </span>
-              <span>Dashboard</span>
-            </button>
-            <button type="button" class="mobile-nav-link" @click="scrollToSection(sectionIds.discover)">
-              <span class="mobile-nav-icon">
+          <!-- Main nav links with icons and separators - ALWAYS VISIBLE -->
+          <nav class="mobile-nav mobile-nav-main" style="display: flex !important; visibility: visible !important; opacity: 1 !important;">
+            <button type="button" class="mobile-nav-link" @click="scrollToSection(sectionIds.discover); menuOpen = false" style="display: flex !important; visibility: visible !important; opacity: 1 !important;">
+              <span class="mobile-nav-icon" style="display: flex !important; visibility: visible !important;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m16.24 7.76 2.83-2.83"/><path d="m7.76 16.24-2.83 2.83"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/></svg>
               </span>
-              <span>Discover</span>
+              <span style="display: inline-block !important; visibility: visible !important;">Discover</span>
             </button>
-            <button type="button" class="mobile-nav-link" @click="scrollToSection(sectionIds.howItWorks)">
-              <span class="mobile-nav-icon">
+            <button type="button" class="mobile-nav-link" @click="scrollToSection(sectionIds.howItWorks); menuOpen = false" style="display: flex !important; visibility: visible !important; opacity: 1 !important;">
+              <span class="mobile-nav-icon" style="display: flex !important; visibility: visible !important;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
               </span>
-              <span>How It Works</span>
+              <span style="display: inline-block !important; visibility: visible !important;">How It Works</span>
             </button>
-            <button type="button" class="mobile-nav-link" @click="scrollToSection(sectionIds.pricing)">
-              <span class="mobile-nav-icon">
+            <button type="button" class="mobile-nav-link" @click="scrollToSection(sectionIds.pricing); menuOpen = false" style="display: flex !important; visibility: visible !important; opacity: 1 !important;">
+              <span class="mobile-nav-icon" style="display: flex !important; visibility: visible !important;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
               </span>
-              <span>Pricing</span>
+              <span style="display: inline-block !important; visibility: visible !important;">Pricing</span>
             </button>
-            <button type="button" class="mobile-nav-link" @click="scrollToSection(sectionIds.about)">
-              <span class="mobile-nav-icon">
+            <button type="button" class="mobile-nav-link" @click="scrollToSection(sectionIds.about); menuOpen = false" style="display: flex !important; visibility: visible !important; opacity: 1 !important;">
+              <span class="mobile-nav-icon" style="display: flex !important; visibility: visible !important;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
               </span>
-              <span>About</span>
+              <span style="display: inline-block !important; visibility: visible !important;">About</span>
             </button>
           </nav>
-        <div class="mobile-search-wrap">
+          
+          <div class="mobile-search-wrap">
           <div v-if="isSearching" class="search-box mobile-search-box">
             <span class="search-icon">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -309,7 +400,7 @@ function onSearchSubmit() {
     <!-- Desktop navbar -->
     <div class="navbar-inner">
       <!-- Logo -->
-      <button type="button" class="logo" @click="scrollToSection(sectionIds.discover)">
+      <button type="button" class="logo" @click="goToHome">
         <span class="logo-icon">
           <img
             src="/images/static_images/ahadi_logo.png"
@@ -324,9 +415,6 @@ function onSearchSubmit() {
 
       <!-- Nav links -->
       <nav class="nav-links">
-        <button type="button" class="nav-link" @click="goToHome">
-          Dashboard
-        </button>
         <button type="button" class="nav-link" @click="scrollToSection(sectionIds.discover)">
           Discover
         </button>
@@ -428,11 +516,23 @@ function onSearchSubmit() {
 
 <style scoped>
 .navbar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 100;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  transition: background 0.25s ease, border-color 0.25s ease, backdrop-filter 0.25s ease;
+}
+
+.navbar.navbar-scrolled {
   background: #fff;
-  border-bottom: 1px solid #e5e7eb;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom-color: #e5e7eb;
 }
 
 /* ----- Mobile header (visible only on small screens) ----- */
@@ -442,19 +542,48 @@ function onSearchSubmit() {
   justify-content: space-between;
   padding: 12px 14px;
   padding-top: max(12px, env(safe-area-inset-top));
-  background: #1a283b;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   min-height: 52px;
   gap: 10px;
+  transition: background 0.25s ease, backdrop-filter 0.25s ease;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.navbar.navbar-scrolled .navbar-mobile {
+  background: #fff;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 @media (max-width: 768px) {
-  .navbar {
-    background: #1a283b;
+  .navbar:not(.navbar-scrolled) {
     border-bottom: none;
   }
   .navbar-mobile {
     display: flex;
   }
+}
+
+/* Mobile: dark text when navbar has solid background (scrolled) */
+.navbar.navbar-scrolled .mobile-brand-name {
+  color: #1a1a2e;
+  text-shadow: none;
+}
+
+.navbar.navbar-scrolled .mobile-brand-tagline {
+  color: #6b7280;
+  text-shadow: none;
+}
+
+.navbar.navbar-scrolled .hamburger {
+  color: #1a1a2e;
+  border-color: #1a1a2e;
+}
+
+.navbar.navbar-scrolled .hamburger:hover {
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .mobile-logo-wrap {
@@ -488,16 +617,18 @@ function onSearchSubmit() {
 .mobile-brand-name {
   font-size: 18px;
   font-weight: 700;
-  color: #fff;
+  color: #1a1a2e;
   letter-spacing: -0.5px;
   line-height: 1.2;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 .mobile-brand-tagline {
   font-size: 11px;
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.9);
+  color: #52525b;
   line-height: 1.3;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 .hamburger {
@@ -511,16 +642,18 @@ function onSearchSubmit() {
   min-width: 40px;
   min-height: 40px;
   padding: 0;
-  background: transparent;
-  border: 2px solid #f97316;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid #1a1a2e;
   border-radius: 8px;
   cursor: pointer;
-  color: #fff;
+  color: #1a1a2e;
   flex-shrink: 0;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .hamburger:hover {
-  background: rgba(249, 115, 22, 0.15);
+  background: rgba(255, 255, 255, 0.4);
+  border-color: #0f0f14;
 }
 
 .hamburger-line {
@@ -533,22 +666,63 @@ function onSearchSubmit() {
 
 /* ----- Mobile menu (drawer from right to left) ----- */
 .mobile-drawer-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 9999 !important;
+  display: none !important; /* Hidden by default */
   justify-content: flex-end;
-  background: rgba(0, 0, 0, 0.4);
+  align-items: stretch;
+  background: rgba(0, 0, 0, 0.7) !important;
+  backdrop-filter: blur(8px);
+  overflow: hidden;
+  pointer-events: auto;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Only show drawer on mobile/tablet */
+@media (max-width: 768px) {
+  .mobile-drawer-overlay {
+    display: flex !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .mobile-drawer-overlay {
+    background: rgba(0, 0, 0, 0.6);
+  }
 }
 
 .mobile-drawer-panel {
   width: min(320px, 85vw);
   max-width: 100%;
-  height: 100%;
-  display: flex;
+  height: 100vh !important;
+  min-height: 100vh !important;
+  max-height: 100vh !important;
+  display: flex !important;
   flex-direction: column;
-  background: #f3f4f6;
-  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.25);
+  background: #ffffff !important;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  position: relative;
+  z-index: 10000 !important;
+  isolation: isolate;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  pointer-events: auto;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+@media (max-width: 480px) {
+  .mobile-drawer-panel {
+    width: min(300px, 90vw);
+  }
 }
 
 .mobile-drawer-header {
@@ -556,9 +730,11 @@ function onSearchSubmit() {
   align-items: center;
   justify-content: space-between;
   padding: 16px;
-  background: #f3f4f6;
+  background: #ffffff !important;
   border-bottom: 1px solid #e5e7eb;
   flex-shrink: 0;
+  position: relative;
+  z-index: 10;
 }
 
 .mobile-drawer-brand {
@@ -614,7 +790,24 @@ function onSearchSubmit() {
 .mobile-drawer-body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
+  display: flex !important;
+  flex-direction: column;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 16px;
+  position: relative;
+  z-index: 1;
+  background: #ffffff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.mobile-drawer-body > * {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  background: transparent;
 }
 
 .mobile-drawer-user {
@@ -680,28 +873,54 @@ function onSearchSubmit() {
   transform: translateX(100%);
 }
 
+/* Prevent body scroll when drawer is open */
+body:has(.mobile-drawer-overlay[style*="display: flex"]) {
+  overflow: hidden;
+}
+
 .mobile-nav {
-  display: flex;
+  display: flex !important;
   flex-direction: column;
   margin-bottom: 0;
-  padding: 0 16px;
-  background: #f3f4f6;
+  padding: 8px 16px;
+  background: #ffffff !important;
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 10 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.mobile-nav-main {
+  margin-top: 0;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .mobile-nav-link {
-  display: flex;
+  display: flex !important;
   align-items: center;
   gap: 12px;
   width: 100%;
   padding: 14px 0;
   font-size: 15px;
   font-weight: 500;
-  color: #374151;
+  color: #374151 !important;
   background: none;
   border: none;
   border-bottom: 1px solid #e5e7eb;
   text-align: left;
   cursor: pointer;
+  font-family: inherit;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.mobile-nav-link span {
+  display: inline-block;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
 .mobile-nav-link:last-of-type {
@@ -709,18 +928,44 @@ function onSearchSubmit() {
 }
 
 .mobile-nav-link:hover {
-  color: #1e3a5f;
+  color: #1e3a5f !important;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.mobile-nav-link:active {
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .mobile-nav-icon {
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: center;
-  color: #6b7280;
+  color: #6b7280 !important;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
 .mobile-nav-link:hover .mobile-nav-icon {
-  color: #1e3a5f;
+  color: #1e3a5f !important;
+}
+
+@media (max-width: 480px) {
+  .mobile-nav {
+    padding: 6px 12px;
+  }
+  
+  .mobile-nav-link {
+    padding: 12px 0;
+    font-size: 14px;
+  }
+  
+  .mobile-nav-icon {
+    width: 18px;
+    height: 18px;
+  }
 }
 
 .mobile-nav-account {
@@ -852,6 +1097,12 @@ function onSearchSubmit() {
   margin: 0 auto;
 }
 
+@media (max-width: 1024px) {
+  .navbar-inner {
+    padding: 16px 32px;
+  }
+}
+
 @media (max-width: 768px) {
   .navbar-inner {
     display: none;
@@ -878,16 +1129,19 @@ function onSearchSubmit() {
   justify-content: center;
   width: 42px;
   height: 42px;
-  padding: 2px;
-  background: #000;
+  padding: 0;
+  background: transparent;
+  border: none;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .logo-img {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  border: none;
+  outline: none;
 }
 
 .logo-text {
@@ -895,6 +1149,7 @@ function onSearchSubmit() {
   font-weight: 700;
   color: #1a1a2e;
   letter-spacing: -0.5px;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 .spacer {
@@ -912,14 +1167,17 @@ function onSearchSubmit() {
   border: none;
   padding: 8px 12px;
   font-size: 14px;
-  font-weight: 400;
-  color: #6b7280;
+  font-weight: 500;
+  color: #374151;
   cursor: pointer;
   border-radius: 8px;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+  transition: color 0.2s ease, background 0.2s ease;
 }
 
 .nav-link:hover {
   color: #1a1a2e;
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .nav-gap {

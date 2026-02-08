@@ -2,11 +2,33 @@
 import { useRouter } from 'vue-router'
 import { ref, onMounted } from 'vue'
 import { fetchEventByJoinCode } from '@/api/event'
+import { getAccessToken } from '@/api/token'
 import JoinDialog from '@/components/JoinDialog.vue'
+import { HERO_VIDEO_URL, HERO_VIDEO_TYPE, HERO_IMAGE_FALLBACK } from '@/config/app'
+
+const useCssAnimation = false // Disabled - using real video
 import type { PublicEvent } from '@/types/events'
 
 const router = useRouter()
 const isLoaded = ref(false)
+const useVideo = ref(true)
+const videoError = ref(false)
+const videoLoaded = ref(false)
+
+function onVideoError(e: Event) {
+  console.warn('Hero video failed to load, falling back to image. Video URL:', HERO_VIDEO_URL, e)
+  videoError.value = true
+  useVideo.value = false
+  // Force re-render to show fallback image
+  setTimeout(() => {
+    console.log('Fallback image should now be visible')
+  }, 100)
+}
+
+function onVideoLoaded() {
+  videoLoaded.value = true
+  console.log('Hero video loaded successfully')
+}
 
 const showCodeModal = ref(false)
 const joinCodeInput = ref('')
@@ -22,7 +44,19 @@ function onJoinWithCode() {
 }
 
 function onCreateEvent() {
-  router.push({ name: 'home' }) // TODO: replace with login route when available
+  // Check if user is logged in
+  const hasToken = !!getAccessToken()
+  
+  if (hasToken) {
+    // User is logged in - navigate directly to create event form
+    router.push({ name: 'events-create' })
+  } else {
+    // User not logged in - redirect to login with redirect to create event form
+    router.push({ 
+      name: 'login', 
+      query: { redirect: '/events/create' } 
+    })
+  }
 }
 
 async function onCodeSubmit() {
@@ -63,6 +97,17 @@ function closeJoinModal() {
 }
 
 onMounted(() => {
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (prefersReducedMotion) {
+    useVideo.value = false
+    console.log('Reduced motion preference detected, using static image')
+  } else {
+    if (HERO_VIDEO_TYPE === 'youtube') {
+      console.log('Loading YouTube video:', HERO_VIDEO_URL)
+    } else {
+      console.log('Loading video from:', HERO_VIDEO_URL)
+    }
+  }
   setTimeout(() => {
     isLoaded.value = true
   }, 100)
@@ -70,7 +115,39 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="hero">
+  <section id="hero" class="hero">
+    <!-- YouTube embed - Event/celebration video from internet -->
+    <iframe
+      v-if="useVideo && HERO_VIDEO_TYPE === 'youtube'"
+      class="hero-video hero-video-youtube"
+      :src="`https://www.youtube.com/embed/${HERO_VIDEO_URL}?autoplay=1&mute=1&loop=1&playlist=${HERO_VIDEO_URL}&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1&start=0`"
+      frameborder="0"
+      allow="autoplay; encrypted-media; picture-in-picture"
+      allowfullscreen
+      loading="eager"
+    />
+    <!-- MP4 video -->
+    <video
+      v-else-if="useVideo && HERO_VIDEO_TYPE === 'mp4'"
+      class="hero-video"
+      :src="HERO_VIDEO_URL"
+      autoplay
+      muted
+      loop
+      playsinline
+      preload="auto"
+      poster="/images/static_images/homepage.png"
+      @error="onVideoError"
+      @loadeddata="onVideoLoaded"
+      @canplay="onVideoLoaded"
+    />
+    <!-- Fallback image -->
+    <div
+      v-else
+      class="hero-bg-image"
+      :style="{ backgroundImage: `url(${HERO_IMAGE_FALLBACK})` }"
+      aria-hidden="true"
+    />
     <div class="hero-container" :class="{ 'is-loaded': isLoaded }">
       
       <!-- Main Content Grid -->
@@ -99,7 +176,7 @@ onMounted(() => {
             
             <!-- Level 1: Top metric -->
             <div class="flowchart-level level-1">
-              <div class="metric-box metric-primary">
+              <div class="metric-box">
                 <div class="metric-label">Total Funds Raised</div>
                 <div class="metric-value">TZS 2.1B+</div>
               </div>
@@ -217,22 +294,22 @@ onMounted(() => {
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;500;600;700;800&display=swap');
 
 /* ============================================
    BASE & VARIABLES
    ============================================ */
 :root {
   --color-bg: #ffffff;
-  --color-text: #0a0a0a;
-  --color-text-muted: #666666;
-  --color-text-light: #999999;
-  --color-border: #e5e5e5;
-  --color-border-light: #f0f0f0;
-  --color-accent: #0a0a0a;
-  --color-accent-hover: #1a1a1a;
-  --color-metric-bg: #f9f6f0;
-  --color-metric-primary: #e8dcc4;
+  --color-text: #0f0f12;
+  --color-text-muted: #52525b;
+  --color-text-light: #71717a;
+  --color-border: #e4e4e7;
+  --color-border-light: #f4f4f5;
+  --color-accent: #1a1a2e;
+  --color-accent-hover: #0f0f14;
+  --color-metric-bg: rgba(255, 255, 255, 0.72);
+  --color-metric-primary: linear-gradient(135deg, #2d2d3a 0%, #1a1a2e 100%);
   --spacing-unit: 8px;
 }
 
@@ -242,54 +319,173 @@ onMounted(() => {
   background: var(--color-bg);
   display: flex;
   align-items: center;
-  padding: 16px 20px;
+  padding: 80px 16px 48px;
+  padding-top: max(80px, calc(56px + env(safe-area-inset-top)));
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   position: relative;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
-/* Mobile: subtract navbar height (52px) so hero + navbar = one viewport */
 @media (max-width: 967px) {
   .hero {
     align-items: center;
-    padding: 24px 20px 32px;
-    min-height: calc(100vh - 52px);
-    min-height: calc(100dvh - 52px);
+    padding: 56px 16px 32px;
+    padding-top: max(56px, calc(52px + env(safe-area-inset-top)));
   }
 }
 
-/* Desktop: subtract navbar height (~80px) so hero + navbar = one viewport */
 @media (min-width: 968px) {
   .hero {
-    min-height: calc(100vh - 80px);
-    min-height: calc(100dvh - 80px);
-    align-items: center;
-    padding: 44px 20px 48px 40px;
+    padding: 80px 24px 48px;
+    padding-top: max(80px, calc(72px + env(safe-area-inset-top)));
   }
 }
 
-.hero::before {
-  content: '';
+@media (min-width: 1280px) {
+  .hero {
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+}
+
+/* Video or image background layer */
+.hero-video,
+.hero-bg-image {
   position: absolute;
   inset: 0;
-  background-image: url('/images/static_images/homepage.png');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  opacity: 0.82;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   z-index: 0;
 }
 
-/* Soft overlay so words are readable: stronger on the left where text is */
+.hero-bg-image {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.88;
+}
+
+/* CSS Animated Background - smooth zoom and pan effect */
+.hero-bg-animated {
+  animation: heroBackgroundAnimation 20s ease-in-out infinite;
+  background-size: 110% 110%;
+  opacity: 0.9;
+}
+
+@keyframes heroBackgroundAnimation {
+  0%, 100% {
+    transform: scale(1) translate(0, 0);
+    opacity: 0.9;
+  }
+  25% {
+    transform: scale(1.05) translate(-2%, -1%);
+    opacity: 0.92;
+  }
+  50% {
+    transform: scale(1.08) translate(1%, 2%);
+    opacity: 0.9;
+  }
+  75% {
+    transform: scale(1.05) translate(-1%, 1%);
+    opacity: 0.92;
+  }
+}
+
+/* Add subtle parallax-like movement */
+.hero-animated::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 30% 50%,
+    rgba(255, 255, 255, 0.1) 0%,
+    transparent 50%
+  );
+  animation: heroShimmer 8s ease-in-out infinite;
+  z-index: 1;
+  pointer-events: none;
+}
+
+@keyframes heroShimmer {
+  0%, 100% {
+    opacity: 0.3;
+    transform: translate(0, 0);
+  }
+  50% {
+    opacity: 0.5;
+    transform: translate(10px, -10px);
+  }
+}
+
+.hero-video {
+  opacity: 1;
+  pointer-events: none;
+  filter: brightness(1.05) contrast(1.1) saturate(1.1);
+}
+
+.hero-video-youtube {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  /* Scale YouTube video to cover full area and hide edges */
+  transform: scale(1.4);
+  transform-origin: center;
+  pointer-events: none;
+  border: none;
+  /* Ensure video covers entire hero section */
+  min-width: 100%;
+  min-height: 100%;
+}
+
+@media (max-width: 768px) {
+  .hero-video-youtube {
+    transform: scale(1.6);
+  }
+}
+
+/* Ensure video is visible and playing */
+.hero-video[src] {
+  display: block;
+}
+
+/* Enhanced overlay: selective gradient for text readability - lighter overlay where text is */
 .hero::after {
   content: '';
   position: absolute;
   inset: 0;
   background: linear-gradient(
-    to right,
-    rgba(252, 251, 249, 0.32) 0%,
-    rgba(252, 251, 249, 0.08) 50%,
-    rgba(252, 251, 249, 0.02) 100%
+    105deg,
+    rgba(255, 255, 255, 0.7) 0%,
+    rgba(255, 255, 255, 0.5) 20%,
+    rgba(255, 255, 255, 0.3) 40%,
+    rgba(255, 255, 255, 0.15) 60%,
+    rgba(0, 0, 0, 0.1) 85%,
+    rgba(0, 0, 0, 0.2) 100%
+  );
+  z-index: 1;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+
+/* Additional targeted overlay for text areas */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 50% 80% at 25% 50%,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0.2) 30%,
+    transparent 60%
+  ),
+  radial-gradient(
+    ellipse 40% 60% at 75% 50%,
+    rgba(0, 0, 0, 0.2) 0%,
+    transparent 50%
   );
   z-index: 1;
   pointer-events: none;
@@ -300,8 +496,19 @@ onMounted(() => {
   z-index: 2;
 }
 
+/* Ensure hero content doesn't appear above mobile drawer */
+@media (max-width: 967px) {
+  .hero-container {
+    z-index: 1;
+  }
+  
+  .metrics-flowchart {
+    z-index: 1 !important;
+  }
+}
+
 .hero-container {
-  max-width: 1280px;
+  max-width: 1400px;
   margin: 0 auto;
   width: 100%;
   opacity: 0;
@@ -326,8 +533,8 @@ onMounted(() => {
 /* Mobile: full-screen left part only – hide metrics, center main + buttons */
 @media (max-width: 967px) {
   .hero-grid {
-    min-height: calc(100vh - 52px - 56px);
-    min-height: calc(100dvh - 52px - 56px);
+    min-height: calc(100vh - 52px - 88px);
+    min-height: calc(100dvh - 52px - 88px);
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -348,23 +555,26 @@ onMounted(() => {
 
 @media (min-width: 968px) {
   .hero-grid {
-    min-height: calc(100vh - 80px - 92px);
-    min-height: calc(100dvh - 80px - 92px);
+    min-height: calc(100vh - 80px - 120px);
+    min-height: calc(100dvh - 80px - 120px);
     display: grid;
     flex-direction: unset;
     justify-content: unset;
-    grid-template-columns: 1.2fr 1fr;
+    grid-template-columns: 1.15fr 1fr;
     grid-template-rows: auto auto;
-    gap: 20px 28px;
+    gap: 24px 32px;
     align-content: center;
   }
+  
   .hero-sidebar {
     display: flex;
     order: unset;
   }
+  
   .hero-main {
     order: unset;
   }
+  
   .hero-actions {
     order: unset;
     justify-content: flex-start;
@@ -397,62 +607,146 @@ onMounted(() => {
 .hero-main {
   display: flex;
   flex-direction: column;
+  gap: 0;
+}
+
+.hero-main > * + * {
+  margin-top: 0;
 }
 
 .hero-label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #333;
+  color: var(--color-text-muted);
   margin-bottom: 10px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 0 2px rgba(255, 255, 255, 1), 0 2px 4px rgba(0, 0, 0, 0.15);
+  text-shadow: 
+    0 1px 2px rgba(255, 255, 255, 0.95),
+    0 0 8px rgba(255, 255, 255, 0.7),
+    0 2px 4px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .hero-heading {
-  font-size: 64px;
-  font-weight: 700;
-  line-height: 1.05;
-  letter-spacing: -0.03em;
-  color: #0a0a0a;
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-size: 56px;
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
   margin: 0 0 16px 0;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.22), 0 0 2px rgba(255, 255, 255, 1), 0 2px 6px rgba(0, 0, 0, 0.18);
+  text-shadow: 
+    0 2px 4px rgba(255, 255, 255, 0.95),
+    0 0 12px rgba(255, 255, 255, 0.8),
+    0 4px 8px rgba(0, 0, 0, 0.15),
+    0 0 20px rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
 
-.hero-heading-accent {
-  position: relative;
-  display: inline-block;
-}
-
-.hero-heading-accent::after {
-  content: '';
-  position: absolute;
-  bottom: 4px;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--color-accent);
-}
-
-@media (max-width: 968px) {
+@media (max-width: 967px) {
   .hero-heading {
-    font-size: 48px;
+    font-size: 40px;
+    line-height: 1.1;
   }
 }
 
 @media (max-width: 640px) {
   .hero-heading {
-    font-size: 38px;
+    font-size: 28px;
+    line-height: 1.15;
+    margin-bottom: 12px;
   }
 }
+
+@media (max-width: 480px) {
+  .hero-heading {
+    font-size: 24px;
+    line-height: 1.2;
+  }
+  
+  .hero-label {
+    font-size: 11px;
+    margin-bottom: 8px;
+  }
+  
+  .hero-subtext {
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
+  
+  .hero-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 10px;
+  }
+  
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+.hero-heading-accent {
+  position: relative;
+  display: inline-block;
+  color: var(--color-accent);
+  text-shadow: 
+    0 2px 4px rgba(255, 255, 255, 0.95),
+    0 0 12px rgba(255, 255, 255, 0.8),
+    0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.hero-heading-accent::after {
+  content: '';
+  position: absolute;
+  bottom: 6px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--color-accent) 0%, rgba(26, 26, 46, 0.6) 100%);
+  border-radius: 2px;
+  box-shadow: 0 2px 4px rgba(255, 255, 255, 0.5);
+}
+
+@media (max-width: 640px) {
+  .hero-heading-accent::after {
+    bottom: 4px;
+    height: 3px;
+  }
+}
+
 
 .hero-subtext {
   font-size: 17px;
   line-height: 1.7;
-  color: #444;
-  max-width: 540px;
-  margin: 0 0 18px 0;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 0 2px rgba(255, 255, 255, 1), 0 2px 4px rgba(0, 0, 0, 0.15);
+  color: var(--color-text-muted);
+  max-width: 520px;
+  margin: 0 0 24px 0;
+  text-shadow: 
+    0 1px 3px rgba(255, 255, 255, 0.9),
+    0 0 8px rgba(255, 255, 255, 0.7),
+    0 2px 4px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+@media (max-width: 967px) {
+  .hero-subtext {
+    font-size: 16px;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-subtext {
+    font-size: 15px;
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
 }
 
 /* ============================================
@@ -462,7 +756,7 @@ onMounted(() => {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  gap: 10px;
+  gap: 12px;
   margin-top: 0;
   margin-bottom: 0;
   align-items: center;
@@ -506,32 +800,43 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background: hsl(220, 12%, 18%);
+  background: #1a1a2e;
   color: #fff;
-  border-color: hsl(220, 12%, 18%);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border-color: #1a1a2e;
+  box-shadow: 0 4px 16px rgba(26, 26, 46, 0.3);
+  font-weight: 600;
+  text-shadow: none;
+  backdrop-filter: none;
 }
 
 .btn-primary:hover {
-  background: hsl(220, 12%, 14%);
-  border-color: hsl(220, 12%, 14%);
+  background: #0f0f14;
+  border-color: #0f0f14;
   transform: translateY(-2px);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 24px rgba(26, 26, 46, 0.4);
 }
 
 .btn-primary:active {
   transform: translateY(0);
+  box-shadow: 0 4px 16px rgba(26, 26, 46, 0.3);
 }
 
 .btn-secondary {
-  background: transparent;
-  color: var(--color-text);
-  border-color: hsl(220, 8%, 45%);
+  background: rgba(255, 255, 255, 0.95);
+  color: #1a1a2e;
+  border-color: rgba(26, 26, 46, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-weight: 600;
+  text-shadow: none;
 }
 
 .btn-secondary:hover {
-  border-color: var(--color-text);
-  background: rgba(0, 0, 0, 0.04);
+  background: #fff;
+  border-color: #1a1a2e;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(26, 26, 46, 0.2);
 }
 
 @media (max-width: 640px) {
@@ -609,19 +914,31 @@ onMounted(() => {
 }
 
 .metrics-flowchart {
-  border: 1px solid var(--color-border);
-  padding: 24px 20px;
-  background: var(--color-bg);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 28px 22px;
+  background: #fff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
   position: relative;
 }
 
+@media (max-width: 967px) {
+  .metrics-flowchart {
+    padding: 24px 18px;
+    border-radius: 16px;
+  }
+}
+
 .flowchart-title {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--color-text);
-  margin-bottom: 20px;
+  color: var(--color-text-muted);
+  margin-bottom: 22px;
   text-align: center;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 /* Flowchart Levels */
@@ -646,23 +963,42 @@ onMounted(() => {
 
 /* Metric Boxes */
 .metric-box {
-  background: var(--color-metric-bg);
-  border: 2px solid var(--color-border);
-  padding: 14px 18px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 16px 18px;
   text-align: center;
   min-width: 130px;
-  transition: all 0.2s ease;
+  border-radius: 14px;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1), 0 1px 0 rgba(255, 255, 255, 0.6) inset;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .metric-box:hover {
-  border-color: var(--color-text-light);
+  border-color: rgba(26, 26, 46, 0.2);
   transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
 }
 
 .metric-primary {
   background: var(--color-metric-primary);
-  border-color: #d4c5a0;
+  border-color: transparent;
   min-width: 180px;
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(26, 26, 46, 0.2);
+}
+
+.metric-primary .metric-label {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.metric-primary .metric-value {
+  color: #fff;
+}
+
+.metric-primary:hover {
+  box-shadow: 0 10px 28px rgba(26, 26, 46, 0.28);
 }
 
 .metric-small {
@@ -808,7 +1144,8 @@ onMounted(() => {
   position: fixed;
   inset: 0;
   z-index: 300;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -817,63 +1154,97 @@ onMounted(() => {
 .code-modal-box {
   background: #fff;
   border-radius: 16px;
-  padding: 24px;
+  padding: 28px;
   width: 100%;
-  max-width: 380px;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.2);
+  max-width: 420px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 .code-modal-title {
-  margin: 0 0 8px;
-  font-size: 1.25rem;
+  margin: 0 0 10px;
+  font-size: 1.5rem;
   font-weight: 700;
+  color: #1a1a2e;
 }
 .code-modal-text {
-  margin: 0 0 16px;
+  margin: 0 0 20px;
   font-size: 0.9375rem;
-  color: var(--color-text-muted, #666);
+  color: #52525b;
+  line-height: 1.5;
 }
 .code-modal-input {
   width: 100%;
-  padding: 12px 14px;
-  border: 1px solid var(--color-border, #e5e5e5);
+  padding: 14px 16px;
+  border: 2px solid #e5e7eb;
   border-radius: 12px;
   font-size: 1.125rem;
+  font-weight: 600;
   letter-spacing: 0.1em;
   text-align: center;
+  text-transform: uppercase;
   box-sizing: border-box;
   margin-bottom: 8px;
+  color: #1a1a2e;
+  background: #fff;
+  transition: border-color 0.2s ease;
+}
+.code-modal-input:focus {
+  outline: none;
+  border-color: #1a1a2e;
+  box-shadow: 0 0 0 3px rgba(26, 26, 46, 0.1);
+}
+.code-modal-input::placeholder {
+  text-transform: none;
+  font-weight: 400;
+  color: #9ca3af;
+  letter-spacing: normal;
 }
 .code-modal-error {
   margin: 0 0 12px;
   font-size: 0.875rem;
+  font-weight: 500;
   color: #dc2626;
+  padding: 10px 14px;
+  background: #fef2f2;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
 }
 .code-modal-actions {
   display: flex;
   gap: 12px;
-  margin-top: 16px;
+  margin-top: 20px;
 }
 .code-modal-btn {
   flex: 1;
-  padding: 12px 16px;
+  padding: 14px 20px;
   border-radius: 12px;
   font-size: 0.9375rem;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
   border: none;
+  transition: all 0.2s ease;
 }
 .code-modal-btn.secondary {
   background: #f3f4f6;
   color: #374151;
 }
+.code-modal-btn.secondary:hover {
+  background: #e5e7eb;
+}
 .code-modal-btn.primary {
-  background: var(--color-accent, #0a0a0a);
+  background: #1a1a2e;
   color: #fff;
+  box-shadow: 0 4px 12px rgba(26, 26, 46, 0.3);
+}
+.code-modal-btn.primary:hover:not(:disabled) {
+  background: #0f0f14;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(26, 26, 46, 0.4);
 }
 .code-modal-btn.primary:disabled {
   background: #9ca3af;
   cursor: not-allowed;
+  box-shadow: none;
 }
 .modal-enter-active,
 .modal-leave-active {

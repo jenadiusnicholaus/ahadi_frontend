@@ -29,7 +29,8 @@ function onCardClick(event: PublicEvent) {
 <template>
   <section class="discover-section">
     <div class="section-header">
-      <h2 class="section-title">Discover Events</h2>
+      <span class="section-label">DISCOVER</span>
+      <h2 class="section-title">Explore upcoming events</h2>
       <button
         v-if="hasActiveFilters"
         type="button"
@@ -76,22 +77,39 @@ function onCardClick(event: PublicEvent) {
 <style scoped>
 .discover-section {
   width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 40px 24px;
+  margin: 0;
+  padding: 32px 24px 48px;
   box-sizing: border-box;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+@media (max-width: 1024px) {
+  .discover-section {
+    padding: 24px 20px 40px;
+  }
+}
+
 @media (max-width: 768px) {
   .discover-section {
-    padding: 24px 14px;
+    padding: 20px 16px 32px;
   }
   .section-spacer {
     height: 16px;
   }
   .events-grid {
     grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .discover-section {
+    padding: 16px 12px 24px;
+  }
+  .section-title {
+    font-size: 22px;
+  }
+  .events-grid {
     gap: 12px;
   }
 }
@@ -101,14 +119,28 @@ function onCardClick(event: PublicEvent) {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px 16px;
+  margin-bottom: 4px;
+}
+
+.section-label {
+  width: 100%;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #71717a;
+  margin-bottom: 2px;
 }
 
 .section-title {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 700;
   color: #1a1a2e;
   margin: 0;
+  letter-spacing: -0.02em;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .section-spacer {
@@ -142,11 +174,27 @@ function onCardClick(event: PublicEvent) {
   display: grid;
   gap: 24px;
   grid-template-columns: 1fr;
+  width: 100%;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 640px) {
+  .events-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+}
+
+@media (min-width: 968px) {
+  .events-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+}
+
+@media (min-width: 1200px) {
   .events-grid {
     grid-template-columns: repeat(4, 1fr);
+    gap: 28px;
   }
 }
 

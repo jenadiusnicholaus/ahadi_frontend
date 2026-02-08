@@ -94,15 +94,28 @@ const SUPPORT_LINKS = [
 <style scoped>
 .footer {
   width: 100%;
-  background: #212121;
-  padding: 48px 24px;
+  background: linear-gradient(180deg, #1a1a1e 0%, #141418 100%);
+  padding: 56px 24px 48px;
   box-sizing: border-box;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+@media (max-width: 1024px) {
+  .footer {
+    padding: 48px 20px 40px;
+  }
+}
+
 @media (max-width: 768px) {
   .footer {
-    padding: 48px 16px;
+    padding: 40px 16px 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  .footer {
+    padding: 32px 12px 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
   }
 }
 
@@ -186,11 +199,41 @@ const SUPPORT_LINKS = [
   font-size: 14px;
   color: #9ca3af;
   text-decoration: none;
-  transition: color 0.2s;
+  transition: all 0.2s;
 }
 
 .footer-link:hover {
   color: #fff;
+}
+
+/* Footer buttons with primary color */
+.footer-btn,
+.footer-link.btn {
+  display: inline-block;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: #1a1a2e;
+  border: none;
+  border-radius: 8px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.footer-btn:hover,
+.footer-link.btn:hover {
+  background: #0f0f14;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(26, 26, 46, 0.3);
+}
+
+.footer-btn:active,
+.footer-link.btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(26, 26, 46, 0.2);
 }
 
 .footer-contact {

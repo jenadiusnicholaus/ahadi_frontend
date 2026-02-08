@@ -37,7 +37,8 @@ function selectType(typeId: number | null) {
 <template>
   <section class="event-types-section">
     <div class="section-header">
-      <h2 class="section-title">Browse by Category</h2>
+      <span class="section-label">CATEGORIES</span>
+      <h2 class="section-title">Browse by type</h2>
       <span class="scroll-hint" aria-hidden="true">Scroll →</span>
     </div>
     <div class="chips-wrap">
@@ -75,17 +76,23 @@ function selectType(typeId: number | null) {
 <style scoped>
 .event-types-section {
   width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 32px 24px;
-  background: #f9fafb;
+  margin: 0;
+  padding: 36px 24px 32px;
+  background: linear-gradient(180deg, #fafafa 0%, #f5f5f5 100%);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   box-sizing: border-box;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+@media (max-width: 1024px) {
+  .event-types-section {
+    padding: 28px 20px 28px;
+  }
 }
 
 @media (max-width: 768px) {
   .event-types-section {
-    padding: 16px 12px;
+    padding: 20px 16px 24px;
   }
   .section-header {
     margin-bottom: 8px;
@@ -119,14 +126,26 @@ function selectType(typeId: number | null) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.section-label {
+  width: 100%;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #71717a;
+  margin-bottom: 2px;
 }
 
 .section-title {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   color: #1a1a2e;
   margin: 0;
+  letter-spacing: -0.02em;
 }
 
 .scroll-hint {
@@ -160,32 +179,35 @@ function selectType(typeId: number | null) {
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
-  padding: 11px 16px;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
+  padding: 11px 18px;
+  border-radius: 14px;
+  border: 1px solid #e4e4e7;
   background: #fff;
-  color: #374151;
-  font-size: 15px;
+  color: #3f3f46;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .chip:hover {
-  border-color: #d1d5db;
-  background: #f9fafb;
+  border-color: #d4d4d8;
+  background: #fafafa;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .chip-selected {
-  background: hsl(220, 12%, 18%);
-  border-color: hsl(220, 12%, 18%);
+  background: #1a1a2e;
+  border-color: #1a1a2e;
   color: #fff;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(26, 26, 46, 0.25);
 }
 
 .chip-selected:hover {
-  background: hsl(220, 12%, 14%);
-  border-color: hsl(220, 12%, 14%);
+  background: #0f0f14;
+  border-color: #0f0f14;
+  box-shadow: 0 6px 16px rgba(26, 26, 46, 0.3);
 }
 
 .chip-icon {

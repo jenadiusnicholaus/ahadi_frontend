@@ -105,16 +105,28 @@ function onGetStarted() {
 .pricing-section {
   width: 100%;
   max-width: 100%;
-  background: #fff;
-  padding: 48px 24px 100px;
+  background: linear-gradient(180deg, #fff 0%, #fafafa 100%);
+  padding: 64px 24px 100px;
   box-sizing: border-box;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   overflow-x: hidden;
 }
 
+@media (max-width: 1024px) {
+  .pricing-section {
+    padding: 56px 20px 80px;
+  }
+}
+
 @media (max-width: 768px) {
   .pricing-section {
     padding: 40px 16px 60px;
+  }
+}
+
+@media (max-width: 480px) {
+  .pricing-section {
+    padding: 32px 12px 48px;
   }
 }
 
@@ -129,22 +141,23 @@ function onGetStarted() {
 .section-label {
   display: inline-block;
   padding: 8px 16px;
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(16, 185, 129, 0.08);
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  color: #10b981;
-  letter-spacing: 1.5px;
-  margin-bottom: 20px;
+  color: #059669;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
 }
 
 .section-heading {
-  font-size: 42px;
+  font-size: 36px;
   font-weight: 700;
   color: #1a1a2e;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.03em;
   line-height: 1.2;
-  margin: 0 0 16px;
+  margin: 0 0 12px;
 }
 
 .section-subheading {
@@ -186,30 +199,31 @@ function onGetStarted() {
   flex: 1;
   min-width: 0;
   background: #fff;
-  border-radius: 20px;
-  border: 1px solid #e5e7eb;
-  padding: 28px;
+  border-radius: 22px;
+  border: 1px solid #e4e4e7;
+  padding: 30px;
   text-align: left;
   transition: transform 0.25s ease-out, box-shadow 0.25s ease-out, border-color 0.25s ease-out;
   box-sizing: border-box;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 
 .pricing-card:hover {
-  transform: translateY(-8px) scale(1.02);
-  border-color: #d1d5db;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+  transform: translateY(-6px);
+  border-color: #d4d4d8;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.08);
 }
 
 .pricing-card-popular {
   border-width: 2px;
-  border-color: hsl(220, 12%, 18%);
-  padding: 32px;
-  box-shadow: 0 15px 30px rgba(26, 32, 44, 0.15);
+  border-color: #1a1a2e;
+  padding: 34px;
+  box-shadow: 0 12px 32px rgba(26, 26, 46, 0.12), 0 1px 0 rgba(255, 255, 255, 0.5) inset;
 }
 
 .pricing-card-popular:hover {
-  border-color: hsl(220, 12%, 18%);
-  box-shadow: 0 20px 40px rgba(26, 32, 44, 0.2);
+  border-color: #1a1a2e;
+  box-shadow: 0 20px 48px rgba(26, 26, 46, 0.18), 0 1px 0 rgba(255, 255, 255, 0.5) inset;
 }
 
 .popular-badge {

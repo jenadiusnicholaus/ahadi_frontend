@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import WebNavbar from '@/components/WebNavbar.vue'
 import { fetchEventTypes } from '@/api/event_type'
 import { createEvent } from '@/api/myEvents'
+import { saveFormData, getFormData, clearFormData } from '@/utils/formPersistence'
 import type { EventType } from '@/types/events'
+
+const FORM_ID = 'create-event'
 
 const router = useRouter()
 const totalSteps = 4
@@ -29,7 +32,18 @@ const form = reactive({
   chatEnabled: true,
 })
 
+// Restore form data on mount
 onMounted(async () => {
+  // Restore saved form data if available
+  const saved = getFormData(FORM_ID)
+  if (saved) {
+    Object.assign(form, saved)
+    // Restore current step if saved
+    if (typeof saved.currentStep === 'number') {
+      currentStep.value = saved.currentStep
+    }
+  }
+
   try {
     const res = await fetchEventTypes()
     eventTypes.value = res.results ?? []
@@ -39,6 +53,18 @@ onMounted(async () => {
     eventTypesLoading.value = false
   }
 })
+
+// Save form data whenever it changes
+watch(
+  () => [form, currentStep.value],
+  () => {
+    saveFormData(FORM_ID, {
+      ...form,
+      currentStep: currentStep.value,
+    })
+  },
+  { deep: true }
+)
 
 const selectedEventType = computed(() =>
   eventTypes.value.find((t) => t.id === form.eventTypeId) ?? null
@@ -58,6 +84,13 @@ async function submit() {
     submitError.value = 'Please enter event title'
     return
   }
+  
+  // Save form data before API call (in case of 401)
+  saveFormData(FORM_ID, {
+    ...form,
+    currentStep: currentStep.value,
+  })
+  
   submitting.value = true
   try {
     await createEvent({
@@ -74,10 +107,13 @@ async function submit() {
       chat_enabled: form.chatEnabled,
       status: 'ACTIVE',
     })
+    // Clear saved form data on success
+    clearFormData(FORM_ID)
     router.push({ name: 'events' })
   } catch (e) {
     submitError.value =
       e instanceof Error ? e.message : 'Failed to create event'
+    // Form data is already saved, so it will persist if user gets redirected
   } finally {
     submitting.value = false
   }

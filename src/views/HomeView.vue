@@ -75,27 +75,44 @@ function onEventCardClick(event: PublicEvent) {
 <style scoped>
 .home {
   min-height: 100vh;
-  background: #f5f2ed;
+  background: #fff;
+  position: relative;
 }
 
 main {
-  max-width: 1200px;
+  position: relative;
+  z-index: 1;
+  max-width: 1280px;
+  width: 100%;
   margin: 0 auto;
-  padding: 20px 24px 24px;
+  padding: 0 32px 48px;
   background: #fff;
+  border-radius: 24px 24px 0 0;
+}
+
+@media (max-width: 1024px) {
+  main {
+    padding: 0 24px 40px;
+  }
 }
 
 @media (max-width: 768px) {
   main {
-    padding: 16px 20px 20px;
-    margin: 0;
+    padding: 0 16px 24px;
+    border-radius: 20px 20px 0 0;
+  }
+}
+
+@media (max-width: 480px) {
+  main {
+    padding: 0 12px 20px;
   }
 }
 
 .section {
   min-height: 60vh;
   padding: 24px 0;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid rgba(26, 32, 44, 0.06);
 }
 
 .section:last-child {
@@ -117,7 +134,7 @@ main {
   font-weight: 700;
   color: #1a1a2e;
   margin-bottom: 12px;
-  font-family: Georgia, 'Times New Roman', serif;
+  letter-spacing: -0.02em;
 }
 
 @media (max-width: 768px) {
@@ -129,14 +146,14 @@ main {
 
 .section p {
   font-size: 16px;
-  color: #6b7280;
-  font-family: Georgia, 'Times New Roman', serif;
+  color: #5a5a5e;
+  line-height: 1.6;
 }
 
 @media (max-width: 768px) {
   .section p {
     font-size: 15px;
-    color: #9ca3af;
+    color: #6b7280;
     line-height: 1.5;
   }
 }
