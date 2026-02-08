@@ -1129,16 +1129,19 @@ body:has(.mobile-drawer-overlay[style*="display: flex"]) {
   justify-content: center;
   width: 42px;
   height: 42px;
-  padding: 2px;
-  background: #000;
+  padding: 0;
+  background: transparent;
+  border: none;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .logo-img {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  border: none;
+  outline: none;
 }
 
 .logo-text {
