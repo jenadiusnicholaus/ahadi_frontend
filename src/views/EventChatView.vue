@@ -507,7 +507,7 @@ function clearInboxSelection() {
                 :class="{ selected: selectedConversationKey === conv.otherPartyId }"
                 @click="selectedConversationKey = conv.otherPartyId"
               >
-                <span class="inbox-conv-avatar">{{ (conv.otherPartyName || '?')[0].toUpperCase() }}</span>
+                <span class="inbox-conv-avatar">{{ (conv.otherPartyName || '?').charAt(0).toUpperCase() }}</span>
                 <div class="inbox-conv-body">
                   <span class="inbox-conv-name">{{ conv.otherPartyName }}</span>
                   <p class="inbox-conv-preview">{{ conv.lastMessage }}</p>
@@ -541,7 +541,7 @@ function clearInboxSelection() {
               >
                 <span class="inbox-conv-avatar inbox-conv-avatar-img">
                   <img v-if="ev.cover_image" :src="assetUrl(ev.cover_image)" :alt="ev.title" />
-                  <span v-else>{{ (ev.title || '?')[0].toUpperCase() }}</span>
+                  <span v-else>{{ (ev.title || '?').charAt(0).toUpperCase() }}</span>
                 </span>
                 <div class="inbox-conv-body">
                   <span class="inbox-conv-name">{{ ev.title }}</span>
@@ -571,7 +571,7 @@ function clearInboxSelection() {
           <template v-else-if="inboxFilter === 'personal' && selectedConversation">
             <header class="inbox-chat-header">
               <button type="button" class="inbox-chat-back" aria-label="Back to list" @click="clearInboxSelection">←</button>
-              <span class="inbox-chat-avatar">{{ (selectedConversation.otherPartyName || '?')[0].toUpperCase() }}</span>
+              <span class="inbox-chat-avatar">{{ (selectedConversation.otherPartyName || '?').charAt(0).toUpperCase() }}</span>
               <div class="inbox-chat-header-info">
                 <span class="inbox-chat-name">{{ selectedConversation.otherPartyName }}</span>
               </div>
@@ -628,7 +628,7 @@ function clearInboxSelection() {
               <button type="button" class="inbox-chat-back" aria-label="Back to list" @click="clearEventChatSelection">←</button>
               <span class="inbox-chat-avatar inbox-chat-avatar-img">
                 <img v-if="selectedEventForChat.cover_image" :src="assetUrl(selectedEventForChat.cover_image)" :alt="selectedEventForChat.title" />
-                <span v-else>{{ (selectedEventForChat.title || '?')[0].toUpperCase() }}</span>
+                <span v-else>{{ (selectedEventForChat.title || '?').charAt(0).toUpperCase() }}</span>
               </span>
               <div class="inbox-chat-header-info">
                 <span class="inbox-chat-name">{{ selectedEventForChat.title }}</span>
