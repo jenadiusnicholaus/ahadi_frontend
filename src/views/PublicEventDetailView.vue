@@ -33,8 +33,8 @@ const loading = ref(true)
 const error = ref<Error | null>(null)
 const showContributeDialog = ref(false)
 const showJoinDialog = ref(false)
-const customAmount = ref<number | null>(null)
 const customAmountInput = ref<string>('')
+const contributeInitialAmount = ref<number | null>(null)
 const participants = ref<Array<{ name?: string; profile_image?: string; avatar?: string; image?: string }>>([])
 const contributions = ref<Array<{ display_name?: string; participant_name?: string; contributor_name?: string; participant_image?: string; contributor_image?: string }>>([])
 
@@ -250,6 +250,13 @@ const progressPercent = computed(() => {
 
 const currency = computed(() => event.value?.currency || 'TZS')
 
+const PRESET_AMOUNTS = [20000, 60000, 120000, 250000] as const
+const currentAmountFromInput = computed(() => {
+  const raw = String(customAmountInput.value).replace(/\D/g, '')
+  const num = raw ? Number(raw) : 0
+  return Number.isFinite(num) ? num : 0
+})
+
 function formatAmount(value: number): string {
   if (!Number.isFinite(value)) return '0'
   return value.toLocaleString()
@@ -263,22 +270,24 @@ function goBack() {
   }
 }
 
-function openContribute() {
-  showContributeDialog.value = true
+/** Clicking a preset amount only fills the amount field – no dialog */
+function setPresetAmount(amount: number) {
+  customAmountInput.value = String(amount)
 }
 
+/** Opening the dialog only when user clicks Contribute (with current amount pre-filled) */
 function openContributeWithAmount(amount: number | null) {
-  if (amount && amount > 0) {
-    customAmount.value = amount
+  if (amount != null && amount > 0) {
+    contributeInitialAmount.value = amount
+  } else {
+    const fromInput = Number(String(customAmountInput.value).replace(/\D/g, '')) || 0
+    contributeInitialAmount.value = fromInput > 0 ? fromInput : null
   }
   showContributeDialog.value = true
 }
 
 function handleCustomDonate() {
-  const amt = Number(customAmountInput.value) || 0
-  if (amt > 0) {
-    openContributeWithAmount(amt)
-  }
+  openContributeWithAmount(null)
 }
 
 function openJoin() {
@@ -565,27 +574,28 @@ const shareCardTagline = computed(() => {
                 </div>
               </div>
 
-              <!-- Preset Donation Amounts -->
+              <!-- Preset Donation Amounts: selected when amount field matches (click or typed) -->
               <div class="preset-amounts">
                 <button
-                  v-for="amount in [20000, 60000, 120000, 250000]"
+                  v-for="amount in PRESET_AMOUNTS"
                   :key="amount"
                   type="button"
                   class="preset-amount-btn"
-                  @click="openContributeWithAmount(amount)"
+                  :class="{ active: currentAmountFromInput === amount }"
+                  @click="setPresetAmount(amount)"
                 >
                   {{ currency }}{{ formatAmount(amount) }}
                 </button>
               </div>
 
-              <!-- Custom Donation Input -->
+              <!-- Amount field: presets/money only fill this. Dialog opens only when user clicks Contribute -->
               <div class="custom-donation">
                 <input
                   v-model="customAmountInput"
-                  type="number"
+                  type="text"
+                  inputmode="numeric"
                   class="donation-input"
                   :placeholder="`${currency} Contribute`"
-                  min="0"
                   @keydown.enter="handleCustomDonate"
                 />
                 <button type="button" class="btn-donate" @click="handleCustomDonate">
@@ -681,9 +691,9 @@ const shareCardTagline = computed(() => {
     <ContributeDialog
       :event="event"
       :open="showContributeDialog"
-      :initial-amount="customAmount"
-      @close="showContributeDialog = false; customAmount = null"
-      @success="showContributeDialog = false; customAmount = null"
+      :initial-amount="contributeInitialAmount"
+      @close="showContributeDialog = false; contributeInitialAmount = null"
+      @success="showContributeDialog = false; contributeInitialAmount = null; loadEvent(); loadContributions()"
     />
     <JoinDialog
       :event="event"
@@ -1090,6 +1100,14 @@ const shareCardTagline = computed(() => {
   color: #22c55e;
 }
 
+.preset-amount-btn.active {
+  border-color: #22c55e;
+  background: #dcfce7;
+  color: #16a34a;
+  font-weight: 600;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+}
+
 /* Fully Fund Button */
 .btn-fully-fund {
   width: 90%;
@@ -1111,7 +1129,7 @@ const shareCardTagline = computed(() => {
   background: #16a34a;
 }
 
-/* Custom Donation */
+/* Amount input + Contribute button. Preset money buttons only fill the input; dialog opens on Contribute */
 .custom-donation {
   display: flex;
   gap: 0.5rem;
