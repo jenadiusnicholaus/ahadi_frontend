@@ -11,11 +11,24 @@ import {
   type ChatMessage,
 } from '@/api/chat'
 import { fetchInbox, fetchInboxUnreadCount, type InboxMessage } from '@/api/inbox'
+import { sendDirectMessage, markConversationRead } from '@/api/direct-messages'
 import { fetchMyEvents } from '@/api/event'
+import { assetUrl } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import type { PublicEvent } from '@/types/events'
 
 type TabId = 'personal' | 'event'
+
+/** One conversation: messages with the same "other party" (sender or recipient). */
+interface Conversation {
+  otherPartyId: number
+  otherPartyName: string
+  lastMessage: string
+  lastTime: string
+  lastIso: string
+  unreadCount: number
+  messages: InboxMessage[]
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -23,6 +36,22 @@ const authStore = useAuthStore()
 const { user } = storeToRefs(authStore)
 
 const activeTab = ref<TabId>('personal')
+/** For WhatsApp-style inbox: selected conversation by other party id (null = none). */
+const selectedConversationKey = ref<number | null>(null)
+/** Inbox view: 'personal' = direct messages (inbox API), 'event' = event chats (chat API). */
+const inboxFilter = ref<'personal' | 'event'>('personal')
+/** When Event Chat filter is on: selected event id for right-panel chat (null = none). */
+const selectedEventIdForChat = ref<number | null>(null)
+/** Event chat messages for right panel when Event Chat + event selected (from chat API). */
+const eventChatMessages = ref<ChatMessage[]>([])
+const eventChatLoading = ref(false)
+const eventChatError = ref<string | null>(null)
+const sendingEventChat = ref(false)
+const eventChatInputText = ref('')
+/** Reply text and sending state for inbox chat */
+const inboxReplyText = ref('')
+const sendingInbox = ref(false)
+const inboxError = ref<string | null>(null)
 const event = ref<PublicEvent | null>(null)
 const myEvents = ref<PublicEvent[]>([])
 const messages = ref<ChatMessage[]>([])
@@ -36,6 +65,7 @@ const error = ref<string | null>(null)
 const sending = ref(false)
 const inputText = ref('')
 const listRef = ref<HTMLElement | null>(null)
+const inboxListRef = ref<HTMLElement | null>(null)
 
 const eventId = computed(() => {
   if (route.name === 'messages') return 0
@@ -162,6 +192,85 @@ const filteredInboxMessages = computed(() => {
   })
 })
 
+/** True when we're on /messages (inbox page). */
+const isInboxPage = computed(() => route.name === 'messages')
+
+/** Inbox messages that are personal (direct) – no event or event 0. */
+const personalInboxMessages = computed(() =>
+  inboxMessages.value.filter((m) => !m.event || m.event === 0)
+)
+
+/** Build conversations from inbox messages: group by other party. Used for Personal filter. */
+function buildConversationsFromMessages(messages: InboxMessage[]): Conversation[] {
+  const myId = currentUserId.value
+  const map = new Map<number, { name: string; messages: InboxMessage[] }>()
+  for (const msg of messages) {
+    const isFromMe = (msg.sender ?? msg.sender_id) === myId
+    const otherId = isFromMe ? msg.recipient_id : (msg.sender_id ?? msg.sender)
+    const otherName = isFromMe ? msg.recipient_name : (msg.sender_name || 'Unknown')
+    if (!map.has(otherId)) map.set(otherId, { name: otherName, messages: [] })
+    map.get(otherId)!.messages.push(msg)
+  }
+  const list: Conversation[] = []
+  map.forEach((val, otherPartyId) => {
+    const sorted = [...val.messages].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+    const last = sorted[0]
+    const unreadCount = val.messages.filter((m) => !m.is_read && (m.sender ?? m.sender_id) !== myId).length
+    list.push({
+      otherPartyId,
+      otherPartyName: val.name,
+      lastMessage: last?.content?.trim() || last?.title || '—',
+      lastTime: formatTime(last?.created_at) || '',
+      lastIso: last?.created_at || '',
+      unreadCount,
+      messages: sorted.reverse(),
+    })
+  })
+  list.sort((a, b) => new Date(b.lastIso).getTime() - new Date(a.lastIso).getTime())
+  return list
+}
+
+const conversations = computed((): Conversation[] => buildConversationsFromMessages(inboxMessages.value))
+
+/** Personal (direct) conversations only – from inbox API, event 0 or null. */
+const personalConversations = computed((): Conversation[] =>
+  buildConversationsFromMessages(personalInboxMessages.value)
+)
+
+/** Conversations for Personal filter, filtered by search. */
+const filteredConversations = computed(() => {
+  let list = personalConversations.value
+  const q = searchQuery.value.trim().toLowerCase()
+  if (q) {
+    list = list.filter(
+      (c) =>
+        c.otherPartyName.toLowerCase().includes(q) ||
+        c.lastMessage.toLowerCase().includes(q)
+    )
+  }
+  return list
+})
+
+/** Currently selected conversation (for right panel) – only when Personal filter. */
+const selectedConversation = computed(() => {
+  if (inboxFilter.value !== 'personal') return null
+  const id = selectedConversationKey.value
+  if (id == null) return null
+  return personalConversations.value.find((c) => c.otherPartyId === id) ?? null
+})
+
+/** Messages to show in the right panel for the selected conversation. */
+const selectedConversationMessages = computed(() => selectedConversation.value?.messages ?? [])
+
+/** Event selected in Event Chat filter (for right panel). */
+const selectedEventForChat = computed(() => {
+  const id = selectedEventIdForChat.value
+  if (id == null) return null
+  return myEvents.value.find((e) => e.id === id) ?? null
+})
+
 onMounted(() => {
   if (eventId.value) activeTab.value = 'event'
   load()
@@ -239,12 +348,345 @@ function openEventChat(ev: PublicEvent) {
 function isInboxFromMe(msg: InboxMessage): boolean {
   return (msg.sender ?? msg.sender_id) === currentUserId.value
 }
+
+/** Mark conversation as read when opening it (Personal). */
+watch(selectedConversationKey, (key) => {
+  if (key != null && inboxFilter.value === 'personal') {
+    markConversationRead(key).catch(() => {})
+    inboxError.value = null
+  }
+})
+
+/** Load event chat messages when an event is selected in Event Chat filter (chat API). */
+async function loadEventChatForInbox() {
+  const eid = selectedEventIdForChat.value
+  if (!eid) {
+    eventChatMessages.value = []
+    return
+  }
+  eventChatLoading.value = true
+  eventChatError.value = null
+  try {
+    let list: unknown[] = []
+    try {
+      list = await fetchEventMessages(eid)
+    } catch {
+      const res = await fetchEventChatMessages(eid, { limit: 200 })
+      list = res.results ?? []
+    }
+    eventChatMessages.value = list.map((raw) => normalizeMessage(raw, eid))
+    await markEventChatRead(eid).catch(() => {})
+  } catch (e) {
+    eventChatError.value = e instanceof Error ? e.message : 'Failed to load chat'
+    eventChatMessages.value = []
+  } finally {
+    eventChatLoading.value = false
+  }
+}
+
+watch(selectedEventIdForChat, (eid) => {
+  if (eid != null) loadEventChatForInbox()
+  else {
+    eventChatMessages.value = []
+    eventChatError.value = null
+  }
+})
+
+/** Send message in Event Chat right panel (chat API). */
+async function sendEventChatFromInbox() {
+  const eid = selectedEventIdForChat.value
+  const text = eventChatInputText.value.trim()
+  if (!eid || !text || sendingEventChat.value) return
+  sendingEventChat.value = true
+  eventChatInputText.value = ''
+  eventChatError.value = null
+  try {
+    const sent = await sendEventChatMessage(eid, { content: text })
+    eventChatMessages.value = [...eventChatMessages.value, sent]
+  } catch (e) {
+    eventChatError.value = e instanceof Error ? e.message : 'Failed to send'
+    eventChatInputText.value = text
+  } finally {
+    sendingEventChat.value = false
+  }
+}
+
+function clearEventChatSelection() {
+  selectedEventIdForChat.value = null
+}
+
+/** Send a direct message in the selected inbox conversation. */
+async function sendInboxMessage() {
+  const text = inboxReplyText.value.trim()
+  const recipientId = selectedConversationKey.value
+  if (!text || recipientId == null || sendingInbox.value) return
+  sendingInbox.value = true
+  inboxError.value = null
+  inboxReplyText.value = ''
+  try {
+    await sendDirectMessage({
+      recipient_id: recipientId,
+      title: '',
+      content: text,
+    })
+    await loadInbox()
+    await nextTick()
+    if (inboxListRef.value) {
+      const scrollParent = inboxListRef.value.parentElement
+      if (scrollParent) scrollParent.scrollTop = scrollParent.scrollHeight
+    }
+  } catch (e) {
+    inboxError.value = e instanceof Error ? e.message : 'Failed to send'
+    inboxReplyText.value = text
+  } finally {
+    sendingInbox.value = false
+  }
+}
+
+function clearInboxSelection() {
+  selectedConversationKey.value = null
+}
 </script>
 
 <template>
   <div class="chat-page">
     <WebNavbar />
-    <main class="chat-main">
+    <!-- WhatsApp-style two-panel inbox at /messages -->
+    <template v-if="isInboxPage">
+      <main class="inbox-outer">
+        <div class="inbox-whatsapp-layout" :class="{ 'inbox-mobile-chat-open': selectedConversation || selectedEventForChat }">
+        <aside class="inbox-left-panel">
+          <header class="inbox-left-header">
+            <h2 class="inbox-app-title">Inbox</h2>
+          </header>
+          <div class="inbox-search-wrap">
+            <span class="inbox-search-icon" aria-hidden="true">🔍</span>
+            <input
+              v-model="searchQuery"
+              type="search"
+              class="inbox-search-input"
+              placeholder="Search or start a new chat"
+              aria-label="Search or start a new chat"
+            />
+          </div>
+          <div class="inbox-filters">
+            <button
+              type="button"
+              class="inbox-filter-btn"
+              :class="{ active: inboxFilter === 'personal' }"
+              @click="inboxFilter = 'personal'; selectedEventIdForChat = null"
+            >
+              Personal
+            </button>
+            <button
+              type="button"
+              class="inbox-filter-btn"
+              :class="{ active: inboxFilter === 'event' }"
+              @click="inboxFilter = 'event'; selectedConversationKey = null"
+            >
+              Event Chat
+            </button>
+          </div>
+          <!-- Personal: conversation list from inbox API -->
+          <template v-if="inboxFilter === 'personal'">
+            <div v-if="inboxLoading && inboxMessages.length === 0" class="inbox-state">
+              <p>Loading…</p>
+            </div>
+            <ul v-else-if="filteredConversations.length === 0" class="inbox-conv-list">
+              <li class="inbox-conv-empty">
+                <span class="inbox-conv-empty-title">No conversations yet</span>
+                <p class="inbox-conv-empty-hint">Direct messages will show up here. Start a conversation from an event or browse events.</p>
+                <router-link to="/events" class="inbox-conv-empty-cta">Browse events</router-link>
+              </li>
+            </ul>
+            <ul v-else class="inbox-conv-list">
+              <li
+                v-for="conv in filteredConversations"
+                :key="conv.otherPartyId"
+                class="inbox-conv-item"
+                :class="{ selected: selectedConversationKey === conv.otherPartyId }"
+                @click="selectedConversationKey = conv.otherPartyId"
+              >
+                <span class="inbox-conv-avatar">{{ (conv.otherPartyName || '?')[0].toUpperCase() }}</span>
+                <div class="inbox-conv-body">
+                  <span class="inbox-conv-name">{{ conv.otherPartyName }}</span>
+                  <p class="inbox-conv-preview">{{ conv.lastMessage }}</p>
+                </div>
+                <div class="inbox-conv-meta">
+                  <span class="inbox-conv-time">{{ conv.lastTime }}</span>
+                  <span v-if="conv.unreadCount > 0" class="inbox-conv-unread">{{ conv.unreadCount > 99 ? '99+' : conv.unreadCount }}</span>
+                </div>
+              </li>
+            </ul>
+          </template>
+          <!-- Event Chat: event list (chat API per event) -->
+          <template v-else>
+            <div v-if="eventsListLoading && myEvents.length === 0" class="inbox-state">
+              <p>Loading events…</p>
+            </div>
+            <ul v-else-if="myEvents.length === 0" class="inbox-conv-list">
+              <li class="inbox-conv-empty">
+                <span class="inbox-conv-empty-title">No events yet</span>
+                <p class="inbox-conv-empty-hint">Join or create an event to see event chats here.</p>
+                <router-link to="/events" class="inbox-conv-empty-cta">Browse events</router-link>
+              </li>
+            </ul>
+            <ul v-else class="inbox-conv-list">
+              <li
+                v-for="ev in myEvents"
+                :key="ev.id"
+                class="inbox-conv-item"
+                :class="{ selected: selectedEventIdForChat === ev.id }"
+                @click="selectedEventIdForChat = ev.id"
+              >
+                <span class="inbox-conv-avatar inbox-conv-avatar-img">
+                  <img v-if="ev.cover_image" :src="assetUrl(ev.cover_image)" :alt="ev.title" />
+                  <span v-else>{{ (ev.title || '?')[0].toUpperCase() }}</span>
+                </span>
+                <div class="inbox-conv-body">
+                  <span class="inbox-conv-name">{{ ev.title }}</span>
+                  <p class="inbox-conv-preview">Event chat</p>
+                </div>
+              </li>
+            </ul>
+          </template>
+        </aside>
+        <section class="inbox-right-panel" :class="{ 'has-chat': selectedConversation || selectedEventForChat }">
+          <template v-if="inboxFilter === 'personal' && !selectedConversation">
+            <div class="inbox-right-empty">
+              <span class="inbox-right-empty-icon">💬</span>
+              <p class="inbox-right-empty-title">Select a chat to start messaging</p>
+              <p class="inbox-right-empty-hint">Direct messages with other users.</p>
+              <router-link to="/events" class="inbox-right-empty-cta">Browse events</router-link>
+            </div>
+          </template>
+          <template v-else-if="inboxFilter === 'event' && !selectedEventForChat">
+            <div class="inbox-right-empty">
+              <span class="inbox-right-empty-icon">📅</span>
+              <p class="inbox-right-empty-title">Select an event to open its chat</p>
+              <p class="inbox-right-empty-hint">Event chats are grouped by event.</p>
+              <router-link to="/events" class="inbox-right-empty-cta">Browse events</router-link>
+            </div>
+          </template>
+          <template v-else-if="inboxFilter === 'personal' && selectedConversation">
+            <header class="inbox-chat-header">
+              <button type="button" class="inbox-chat-back" aria-label="Back to list" @click="clearInboxSelection">←</button>
+              <span class="inbox-chat-avatar">{{ (selectedConversation.otherPartyName || '?')[0].toUpperCase() }}</span>
+              <div class="inbox-chat-header-info">
+                <span class="inbox-chat-name">{{ selectedConversation.otherPartyName }}</span>
+              </div>
+              <div class="inbox-chat-header-actions">
+                <button type="button" class="inbox-header-icon" aria-label="Call">📞</button>
+                <button type="button" class="inbox-header-icon" aria-label="Search">🔍</button>
+              </div>
+            </header>
+            <div v-if="inboxError" class="inbox-chat-error" role="alert">{{ inboxError }}</div>
+            <div class="inbox-chat-bg">
+              <div class="inbox-chat-day-sep">Today</div>
+              <ul ref="inboxListRef" class="inbox-message-list" role="list">
+                <li
+                  v-for="msg in selectedConversationMessages"
+                  :key="msg.id"
+                  class="inbox-msg-row"
+                  :class="{ me: isInboxFromMe(msg) }"
+                  role="listitem"
+                >
+                  <div class="inbox-bubble-wrap" :class="{ me: isInboxFromMe(msg) }">
+                    <div class="inbox-bubble">
+                      <span class="inbox-bubble-content">{{ msg.content || msg.title || '—' }}</span>
+                      <span class="inbox-bubble-time">{{ formatTime(msg.created_at) }}</span>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+            </div>
+            <footer class="inbox-chat-footer">
+              <input
+                v-model="inboxReplyText"
+                type="text"
+                class="inbox-chat-input"
+                placeholder="Type a message"
+                :disabled="sendingInbox"
+                aria-label="Message input"
+                @keydown.enter.prevent="sendInboxMessage"
+              />
+              <button
+                type="button"
+                class="inbox-send-btn"
+                aria-label="Send"
+                :disabled="!inboxReplyText.trim() || sendingInbox"
+                @click="sendInboxMessage"
+              >
+                <span v-if="sendingInbox" class="inbox-send-spinner" />
+                <span v-else>➤</span>
+              </button>
+            </footer>
+          </template>
+          <!-- Event Chat right panel: event messages (chat API) -->
+          <template v-else-if="inboxFilter === 'event' && selectedEventForChat">
+            <header class="inbox-chat-header">
+              <button type="button" class="inbox-chat-back" aria-label="Back to list" @click="clearEventChatSelection">←</button>
+              <span class="inbox-chat-avatar inbox-chat-avatar-img">
+                <img v-if="selectedEventForChat.cover_image" :src="assetUrl(selectedEventForChat.cover_image)" :alt="selectedEventForChat.title" />
+                <span v-else>{{ (selectedEventForChat.title || '?')[0].toUpperCase() }}</span>
+              </span>
+              <div class="inbox-chat-header-info">
+                <span class="inbox-chat-name">{{ selectedEventForChat.title }}</span>
+              </div>
+            </header>
+            <div v-if="eventChatError" class="inbox-chat-error" role="alert">{{ eventChatError }}</div>
+            <div class="inbox-chat-bg">
+              <div v-if="eventChatLoading && eventChatMessages.length === 0" class="inbox-state">
+                <p>Loading chat…</p>
+              </div>
+              <template v-else>
+                <div class="inbox-chat-day-sep">Messages</div>
+                <ul class="inbox-message-list" role="list">
+                  <li
+                    v-for="msg in eventChatMessages"
+                    :key="msg.id"
+                    class="inbox-msg-row"
+                    :class="{ me: isMe(msg) }"
+                    role="listitem"
+                  >
+                    <div class="inbox-bubble-wrap" :class="{ me: isMe(msg) }">
+                      <div class="inbox-bubble">
+                        <span class="inbox-bubble-content">{{ msg.content || '—' }}</span>
+                        <span class="inbox-bubble-time">{{ formatTime(msg.created_at) }}</span>
+                      </div>
+                    </div>
+                  </li>
+                </ul>
+              </template>
+            </div>
+            <footer class="inbox-chat-footer">
+              <input
+                v-model="eventChatInputText"
+                type="text"
+                class="inbox-chat-input"
+                placeholder="Type a message"
+                :disabled="sendingEventChat"
+                aria-label="Message input"
+                @keydown.enter.prevent="sendEventChatFromInbox"
+              />
+              <button
+                type="button"
+                class="inbox-send-btn"
+                aria-label="Send"
+                :disabled="!eventChatInputText.trim() || sendingEventChat"
+                @click="sendEventChatFromInbox"
+              >
+                <span v-if="sendingEventChat" class="inbox-send-spinner" />
+                <span v-else>➤</span>
+              </button>
+            </footer>
+          </template>
+        </section>
+        </div>
+      </main>
+    </template>
+    <!-- Original layout for event chat -->
+    <main v-else class="chat-main">
       <header class="chat-header">
         <button v-if="showBackButton" type="button" class="back-btn" aria-label="Back" @click="goBack">
           <span class="back-icon">←</span>
@@ -988,5 +1430,567 @@ function isInboxFromMe(msg: InboxMessage): boolean {
 .send-icon {
   font-size: 18px;
   line-height: 1;
+}
+
+/* ========== WhatsApp-style inbox layout (/messages) ========== */
+/* Push content below fixed navbar (navbar is ~52px + padding) */
+.inbox-outer {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  min-height: 0;
+  background: #f3f4f6;
+  padding: 0;
+  padding-top: 72px;
+}
+
+.inbox-whatsapp-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: #fff;
+  max-width: 960px;
+  width: 100%;
+  box-shadow: 0 0 24px rgba(0, 0, 0, 0.08);
+}
+
+.inbox-left-panel {
+  width: 100%;
+  max-width: 380px;
+  min-width: 280px;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.inbox-left-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #f0f2f5;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.inbox-app-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.inbox-app-tagline {
+  margin: 2px 0 0;
+  font-size: 13px;
+  font-weight: 400;
+  color: #6b7280;
+  line-height: 1.3;
+}
+
+.inbox-left-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.inbox-header-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  font-size: 18px;
+  color: #54656f;
+  cursor: pointer;
+}
+
+.inbox-header-icon:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.inbox-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 12px;
+  padding: 8px 12px;
+  background: #f0f2f5;
+  border-radius: 8px;
+}
+
+.inbox-search-icon {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.inbox-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  outline: none;
+}
+
+.inbox-search-input::placeholder {
+  color: #667781;
+}
+
+.inbox-filters {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px 8px;
+}
+
+.inbox-filter-btn {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #667781;
+  background: transparent;
+  border: none;
+  border-radius: 18px;
+  cursor: pointer;
+}
+
+.inbox-filter-btn:hover {
+  background: #f0f2f5;
+  color: #111827;
+}
+
+.inbox-filter-btn.active {
+  background: #25d366;
+  color: #fff;
+}
+
+.inbox-conv-list {
+  flex: 1;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.inbox-conv-empty {
+  padding: 32px 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.inbox-conv-empty-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.inbox-conv-empty-hint {
+  margin: 0;
+  font-size: 14px;
+  color: #667781;
+  max-width: 260px;
+  line-height: 1.4;
+}
+
+.inbox-conv-empty-cta {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: #25d366;
+  border-radius: 24px;
+  text-decoration: none;
+}
+
+.inbox-conv-empty-cta:hover {
+  background: #20bd5a;
+}
+
+.inbox-conv-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.inbox-conv-item:hover {
+  background: #f5f6f6;
+}
+
+.inbox-conv-item.selected {
+  background: #f0f2f5;
+}
+
+.inbox-conv-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #dfe5e8;
+  color: #54656f;
+  font-size: 18px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.inbox-conv-avatar-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.inbox-conv-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.inbox-conv-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inbox-conv-preview {
+  margin: 0;
+  font-size: 14px;
+  color: #667781;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  line-clamp: 1;
+}
+
+.inbox-conv-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.inbox-conv-time {
+  font-size: 12px;
+  color: #667781;
+}
+
+.inbox-conv-unread {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: #25d366;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inbox-right-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #efeae2;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d1c4b8' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+.inbox-right-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+}
+
+.inbox-right-empty-icon {
+  font-size: 64px;
+  opacity: 0.5;
+}
+
+.inbox-right-empty-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.inbox-right-empty-hint {
+  margin: 0;
+  font-size: 14px;
+  color: #667781;
+  max-width: 280px;
+}
+
+.inbox-right-empty-cta {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: #25d366;
+  border-radius: 24px;
+  text-decoration: none;
+}
+
+.inbox-right-empty-cta:hover {
+  background: #20bd5a;
+}
+
+.inbox-chat-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #f0f2f5;
+  border-left: 1px solid #e5e7eb;
+}
+
+.inbox-chat-back {
+  display: none;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  font-size: 20px;
+  color: #54656f;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.inbox-chat-back:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.inbox-chat-error {
+  padding: 8px 16px;
+  font-size: 13px;
+  color: #b91c1c;
+  background: #fef2f2;
+  border-bottom: 1px solid #fecaca;
+}
+
+.inbox-chat-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #dfe5e8;
+  color: #54656f;
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.inbox-chat-avatar-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.inbox-chat-header-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.inbox-chat-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.inbox-chat-header-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.inbox-chat-bg {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.inbox-chat-day-sep {
+  text-align: center;
+  font-size: 12px;
+  color: #667781;
+  margin: 8px 0;
+  padding: 0 12px;
+}
+
+.inbox-message-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.inbox-msg-row {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.inbox-msg-row.me {
+  justify-content: flex-end;
+}
+
+.inbox-bubble-wrap {
+  max-width: 65%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.inbox-bubble-wrap.me {
+  align-items: flex-end;
+}
+
+.inbox-bubble {
+  padding: 8px 12px;
+  border-radius: 8px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.inbox-bubble-wrap:not(.me) .inbox-bubble {
+  background: #fff;
+  border-top-left-radius: 2px;
+}
+
+.inbox-bubble-wrap.me .inbox-bubble {
+  background: #d9fdd3;
+  border-top-right-radius: 2px;
+}
+
+.inbox-bubble-content {
+  font-size: 14px;
+  color: #111827;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.inbox-bubble-time {
+  font-size: 11px;
+  color: #667781;
+  align-self: flex-end;
+}
+
+.inbox-chat-footer {
+  padding: 8px 16px 16px;
+  background: #f0f2f5;
+  border-left: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inbox-chat-input {
+  flex: 1;
+  padding: 10px 16px;
+  font-size: 15px;
+  border: none;
+  border-radius: 24px;
+  background: #fff;
+  outline: none;
+}
+
+.inbox-send-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #25d366;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.inbox-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.inbox-send-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: login-spin 0.6s linear infinite;
+}
+
+.inbox-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  font-size: 14px;
+  color: #667781;
+}
+
+/* Responsive: mobile – back button, single panel when chat open */
+@media (max-width: 768px) {
+  .inbox-left-panel {
+    max-width: none;
+  }
+
+  .inbox-chat-back {
+    display: flex;
+  }
+
+  .inbox-whatsapp-layout .inbox-right-panel:not(.has-chat) {
+    display: none;
+  }
+
+  .inbox-whatsapp-layout.inbox-mobile-chat-open .inbox-left-panel {
+    display: none;
+  }
 }
 </style>

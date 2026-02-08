@@ -105,8 +105,11 @@ function onClick() {
           <span class="meta-icon" aria-hidden="true">👥</span>
           {{ participantCount }} participating
         </span>
-        <div v-if="contributionTarget > 0" class="card-progress">
-          <span class="progress-label">{{ progressPercent }}%</span>
+        <div class="card-footer-right">
+          <div v-if="contributionTarget > 0" class="card-progress">
+            <span class="progress-label">{{ progressPercent }}%</span>
+          </div>
+          <slot name="actions" />
         </div>
       </div>
     </div>
@@ -274,6 +277,12 @@ function onClick() {
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid #f3f4f6;
+}
+
+.card-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .card-participants {

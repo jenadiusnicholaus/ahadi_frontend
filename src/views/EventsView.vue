@@ -30,7 +30,7 @@ onMounted(() => {
 })
 
 function onEventCardClick(event: PublicEvent) {
-  router.push({ name: 'events-detail', params: { id: String(event.id) } })
+  router.push({ name: 'event-public', params: { id: String(event.id) } })
 }
 
 function goToCreateEvent() {
@@ -79,7 +79,17 @@ function goToCreateEvent() {
           :key="event.id"
           :event="event"
           @click="onEventCardClick"
-        />
+        >
+          <template #actions>
+            <router-link
+              :to="{ name: 'events-detail', params: { id: String(event.id) } }"
+              class="events-manage-link"
+              @click.stop
+            >
+              Manage
+            </router-link>
+          </template>
+        </EventCard>
       </div>
     </main>
   </div>
@@ -221,5 +231,16 @@ function goToCreateEvent() {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 24px;
+}
+
+.events-manage-link {
+  font-size: 12px;
+  font-weight: 500;
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.events-manage-link:hover {
+  text-decoration: underline;
 }
 </style>
