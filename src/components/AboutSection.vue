@@ -118,14 +118,28 @@ function onLearnMore() {
   gap: 80px;
 }
 
+@media (max-width: 1024px) {
+  .about-inner {
+    padding: 80px 20px;
+    gap: 60px;
+  }
+}
+
 @media (max-width: 768px) {
   .about-inner {
     flex-direction: column;
-    padding: 60px 16px 48px;
-    gap: 48px;
+    padding: 48px 16px 40px;
+    gap: 40px;
     align-items: stretch;
     min-width: 0;
     overflow-x: hidden;
+  }
+}
+
+@media (max-width: 480px) {
+  .about-inner {
+    padding: 40px 12px 32px;
+    gap: 32px;
   }
 }
 

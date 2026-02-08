@@ -84,9 +84,15 @@ function selectType(typeId: number | null) {
   border-bottom: 1px solid rgba(0, 0, 0, 0.04);
 }
 
+@media (max-width: 1024px) {
+  .event-types-section {
+    padding: 28px 20px 28px;
+  }
+}
+
 @media (max-width: 768px) {
   .event-types-section {
-    padding: 24px 20px 24px;
+    padding: 20px 16px 24px;
   }
   .section-header {
     margin-bottom: 8px;

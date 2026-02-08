@@ -99,7 +99,7 @@ function normalizeMessage(raw: unknown, eventIdNum: number): ChatMessage {
     id: Number(o?.id) || 0,
     event: eventIdNum,
     sender: Number(o?.sender ?? o?.sender_id) || 0,
-    sender_name: String(o?.sender_name ?? o?.sender?.full_name ?? 'Unknown').trim() || 'Unknown',
+    sender_name: String(o?.sender_name ?? (o?.sender && typeof o.sender === 'object' && 'full_name' in o.sender ? (o.sender as { full_name?: string }).full_name : null) ?? 'Unknown').trim() || 'Unknown',
     sender_phone: String(o?.sender_phone ?? '').trim(),
     content: String(o?.content ?? '').trim(),
     message_type: String(o?.message_type ?? 'TEXT').trim(),
@@ -725,7 +725,7 @@ function clearInboxSelection() {
               role="listitem"
             >
               <template v-if="!isMe(msg)">
-                <span class="bubble-avatar">{{ (msg.sender_name || 'U')[0].toUpperCase() }}</span>
+                <span class="bubble-avatar">{{ (msg.sender_name || 'U').charAt(0).toUpperCase() }}</span>
                 <div class="bubble-wrap other">
                   <span class="bubble-sender">{{ msg.sender_name || 'Unknown' }}</span>
                   <div class="bubble">
@@ -832,7 +832,7 @@ function clearInboxSelection() {
           </div>
           <ul v-else class="inbox-list">
             <li v-for="msg in filteredInboxMessages" :key="msg.id" class="inbox-item">
-              <span class="inbox-avatar">{{ (isInboxFromMe(msg) ? msg.recipient_name : msg.sender_name || '?')[0].toUpperCase() }}</span>
+              <span class="inbox-avatar">{{ ((isInboxFromMe(msg) ? msg.recipient_name : msg.sender_name) || '?').charAt(0).toUpperCase() }}</span>
               <div class="inbox-body">
                 <span class="inbox-from">{{ isInboxFromMe(msg) ? `To: ${msg.recipient_name}` : msg.sender_name }}</span>
                 <p v-if="msg.title" class="inbox-title">{{ msg.title }}</p>
@@ -865,7 +865,7 @@ function clearInboxSelection() {
                 class="event-chat-tile"
                 @click="openEventChat(ev)"
               >
-                <span class="event-chat-avatar">{{ (ev.title || 'E')[0].toUpperCase() }}</span>
+                <span class="event-chat-avatar">{{ (ev.title || 'E').charAt(0).toUpperCase() }}</span>
                 <div class="event-chat-body">
                   <span class="event-chat-title">{{ ev.title }}</span>
                   <span class="event-chat-meta">{{ ev.event_type_name || 'Event' }} · {{ ev.start_date ? formatDate(ev.start_date) : '' }}</span>
@@ -910,7 +910,7 @@ function clearInboxSelection() {
                 role="listitem"
               >
                 <template v-if="!isMe(msg)">
-                  <span class="bubble-avatar">{{ (msg.sender_name || 'U')[0].toUpperCase() }}</span>
+                  <span class="bubble-avatar">{{ (msg.sender_name || 'U').charAt(0).toUpperCase() }}</span>
                   <div class="bubble-wrap other">
                     <span class="bubble-sender">{{ msg.sender_name || 'Unknown' }}</span>
                     <div class="bubble">

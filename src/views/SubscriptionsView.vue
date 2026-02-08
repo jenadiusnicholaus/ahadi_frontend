@@ -443,7 +443,7 @@ onMounted(load)
           <button
             type="button"
             class="btn-subscribe"
-            :disabled="submitting"
+            :disabled="subscribing"
             @click="doSubscribe"
           >
             {{ subscribing ? 'Processing…' : 'Subscribe Now' }}

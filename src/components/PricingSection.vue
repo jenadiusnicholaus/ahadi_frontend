@@ -112,9 +112,21 @@ function onGetStarted() {
   overflow-x: hidden;
 }
 
+@media (max-width: 1024px) {
+  .pricing-section {
+    padding: 56px 20px 80px;
+  }
+}
+
 @media (max-width: 768px) {
   .pricing-section {
     padding: 40px 16px 60px;
+  }
+}
+
+@media (max-width: 480px) {
+  .pricing-section {
+    padding: 32px 12px 48px;
   }
 }
 

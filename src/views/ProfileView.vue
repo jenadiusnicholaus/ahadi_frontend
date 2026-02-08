@@ -50,7 +50,7 @@ const profilePictureUrl = computed(() => {
 })
 const initial = computed(() => {
   const name = fullName.value
-  return name && name !== 'Not set' ? name[0].toUpperCase() : 'U'
+  return name && name !== 'Not set' && name.length > 0 ? name.charAt(0).toUpperCase() : 'U'
 })
 
 const subscription = computed(() => {

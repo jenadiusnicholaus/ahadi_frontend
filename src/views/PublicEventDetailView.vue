@@ -536,7 +536,7 @@ const shareCardTagline = computed(() => {
               <!-- Progress Circle -->
               <div v-if="contributionTarget > 0" class="progress-circle-section">
                 <div class="progress-circle-wrap">
-                  <svg class="progress-circle" viewBox="0 0 200 200">
+                  <svg class="progress-circle" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet">
                     <circle
                       class="progress-circle-bg"
                       cx="100"
@@ -752,6 +752,10 @@ const shareCardTagline = computed(() => {
   .event-layout {
     grid-template-columns: 1fr;
     gap: 32px;
+  }
+
+  .event-right {
+    position: static;
   }
 }
 
@@ -1490,13 +1494,33 @@ const shareCardTagline = computed(() => {
 }
 
 /* Responsive adjustments */
+@media (max-width: 1024px) {
+  .public-event-main {
+    padding: 80px 24px 32px;
+  }
+
+  .event-layout {
+    gap: 24px;
+  }
+
+  .event-image-wrap {
+    width: 100%;
+  }
+}
+
 @media (max-width: 768px) {
   .public-event-main {
-    padding: 16px 20px 32px;
+    padding: 80px 16px 24px;
+  }
+
+  .breadcrumbs {
+    font-size: 0.8125rem;
+    margin-bottom: 20px;
   }
 
   .event-title {
     font-size: 1.75rem;
+    margin-bottom: 0.5rem;
   }
 
   .event-type-badge {
@@ -1504,12 +1528,153 @@ const shareCardTagline = computed(() => {
     padding: 0.2rem 0.5rem;
   }
 
+  .event-subtitle {
+    font-size: 0.9375rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .event-image-wrap {
+    width: 100%;
+    margin-bottom: 1.5rem;
+  }
+
+  .story-title {
+    font-size: 1.125rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .story-text {
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
+
   .donation-widget {
-    padding: 20px;
+    padding: 1.5rem 1.25rem;
+  }
+
+  .progress-circle-section {
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .progress-circle {
+    width: 160px;
+    height: 160px;
+  }
+
+  .progress-percent-large {
+    font-size: 2rem;
+  }
+
+  .progress-label {
+    font-size: 0.875rem;
+  }
+
+  .amount-raised {
+    font-size: 1.5rem;
+  }
+
+  .amount-to-go {
+    font-size: 0.9375rem;
+  }
+
+  .preset-amounts {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.625rem;
+  }
+
+  .preset-amount-btn {
+    padding: 0.75rem 0.875rem;
+    font-size: 0.875rem;
+    min-height: 40px;
+  }
+
+  .custom-donation {
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .donation-input {
+    padding: 0.75rem 0.875rem;
+    font-size: 0.875rem;
+    min-height: 40px;
+  }
+
+  .btn-donate {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    min-height: 40px;
+  }
+
+  .action-buttons {
+    gap: 0.625rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .btn-action {
+    padding: 0.75rem 0.875rem;
+    font-size: 0.875rem;
+    min-height: 40px;
+  }
+
+  .contributors-section {
+    padding-top: 1.5rem;
+    padding-bottom: 1.25rem;
+  }
+
+  .contributors-title {
+    font-size: 1rem;
+  }
+
+  .supporters-section {
+    margin-top: 1.25rem;
+  }
+
+  .supporters-title {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .public-event-main {
+    padding: 80px 12px 20px;
+  }
+
+  .event-title {
+    font-size: 1.5rem;
+  }
+
+  .event-subtitle {
+    font-size: 0.875rem;
+  }
+
+  .progress-circle {
+    width: 140px;
+    height: 140px;
+  }
+
+  .progress-percent-large {
+    font-size: 1.75rem;
+  }
+
+  .amount-raised {
+    font-size: 1.25rem;
   }
 
   .preset-amounts {
     grid-template-columns: 1fr;
+  }
+
+  .preset-amount-btn {
+    width: 100%;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .btn-action {
+    width: 100%;
   }
 }
 

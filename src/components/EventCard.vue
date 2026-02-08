@@ -130,6 +130,14 @@ function onClick() {
   height: 100%;
   min-height: 320px;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .event-card {
+    min-height: 280px;
+    border-radius: 16px;
+  }
 }
 
 .event-card:hover {

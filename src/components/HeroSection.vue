@@ -420,8 +420,9 @@ onMounted(() => {
 }
 
 .hero-video {
-  opacity: 0.9;
+  opacity: 1;
   pointer-events: none;
+  filter: brightness(1.05) contrast(1.1) saturate(1.1);
 }
 
 .hero-video-youtube {
@@ -451,32 +452,40 @@ onMounted(() => {
   display: block;
 }
 
-/* Enhanced overlay: stronger gradient for text readability over video */
+/* Enhanced overlay: selective gradient for text readability - lighter overlay where text is */
 .hero::after {
   content: '';
   position: absolute;
   inset: 0;
   background: linear-gradient(
     105deg,
-    rgba(255, 255, 255, 0.95) 0%,
-    rgba(255, 255, 255, 0.85) 25%,
-    rgba(255, 255, 255, 0.65) 45%,
-    rgba(255, 255, 255, 0.35) 65%,
-    rgba(0, 0, 0, 0.15) 100%
+    rgba(255, 255, 255, 0.7) 0%,
+    rgba(255, 255, 255, 0.5) 20%,
+    rgba(255, 255, 255, 0.3) 40%,
+    rgba(255, 255, 255, 0.15) 60%,
+    rgba(0, 0, 0, 0.1) 85%,
+    rgba(0, 0, 0, 0.2) 100%
   );
   z-index: 1;
   pointer-events: none;
+  mix-blend-mode: overlay;
 }
 
-/* Additional dark overlay on right side for better contrast */
+/* Additional targeted overlay for text areas */
 .hero::before {
   content: '';
   position: absolute;
   inset: 0;
   background: radial-gradient(
-    ellipse 60% 100% at 80% 50%,
-    rgba(0, 0, 0, 0.25) 0%,
+    ellipse 50% 80% at 25% 50%,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0.2) 30%,
     transparent 60%
+  ),
+  radial-gradient(
+    ellipse 40% 60% at 75% 50%,
+    rgba(0, 0, 0, 0.2) 0%,
+    transparent 50%
   );
   z-index: 1;
   pointer-events: none;
@@ -485,6 +494,17 @@ onMounted(() => {
 .hero .hero-container {
   position: relative;
   z-index: 2;
+}
+
+/* Ensure hero content doesn't appear above mobile drawer */
+@media (max-width: 967px) {
+  .hero-container {
+    z-index: 1;
+  }
+  
+  .metrics-flowchart {
+    z-index: 1 !important;
+  }
 }
 
 .hero-container {
@@ -601,7 +621,12 @@ onMounted(() => {
   text-transform: uppercase;
   color: var(--color-text-muted);
   margin-bottom: 10px;
-  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.8), 0 0 8px rgba(255, 255, 255, 0.5);
+  text-shadow: 
+    0 1px 2px rgba(255, 255, 255, 0.95),
+    0 0 8px rgba(255, 255, 255, 0.7),
+    0 2px 4px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .hero-heading {
@@ -612,7 +637,13 @@ onMounted(() => {
   letter-spacing: -0.02em;
   color: var(--color-text);
   margin: 0 0 16px 0;
-  text-shadow: 0 2px 8px rgba(255, 255, 255, 0.9), 0 0 12px rgba(255, 255, 255, 0.6);
+  text-shadow: 
+    0 2px 4px rgba(255, 255, 255, 0.95),
+    0 0 12px rgba(255, 255, 255, 0.8),
+    0 4px 8px rgba(0, 0, 0, 0.15),
+    0 0 20px rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
 
 @media (max-width: 967px) {
@@ -624,9 +655,38 @@ onMounted(() => {
 
 @media (max-width: 640px) {
   .hero-heading {
-    font-size: 32px;
-    line-height: 1.12;
-    margin-bottom: 16px;
+    font-size: 28px;
+    line-height: 1.15;
+    margin-bottom: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-heading {
+    font-size: 24px;
+    line-height: 1.2;
+  }
+  
+  .hero-label {
+    font-size: 11px;
+    margin-bottom: 8px;
+  }
+  
+  .hero-subtext {
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
+  
+  .hero-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 10px;
+  }
+  
+  .btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 
@@ -634,6 +694,10 @@ onMounted(() => {
   position: relative;
   display: inline-block;
   color: var(--color-accent);
+  text-shadow: 
+    0 2px 4px rgba(255, 255, 255, 0.95),
+    0 0 12px rgba(255, 255, 255, 0.8),
+    0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .hero-heading-accent::after {
@@ -645,6 +709,7 @@ onMounted(() => {
   height: 4px;
   background: linear-gradient(90deg, var(--color-accent) 0%, rgba(26, 26, 46, 0.6) 100%);
   border-radius: 2px;
+  box-shadow: 0 2px 4px rgba(255, 255, 255, 0.5);
 }
 
 @media (max-width: 640px) {
@@ -661,7 +726,12 @@ onMounted(() => {
   color: var(--color-text-muted);
   max-width: 520px;
   margin: 0 0 24px 0;
-  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.8), 0 0 8px rgba(255, 255, 255, 0.5);
+  text-shadow: 
+    0 1px 3px rgba(255, 255, 255, 0.9),
+    0 0 8px rgba(255, 255, 255, 0.7),
+    0 2px 4px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 @media (max-width: 967px) {
@@ -730,41 +800,43 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background: transparent;
+  background: #1a1a2e;
   color: #fff;
-  border-color: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  font-weight: 700;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 12px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(8px);
+  border-color: #1a1a2e;
+  box-shadow: 0 4px 16px rgba(26, 26, 46, 0.3);
+  font-weight: 600;
+  text-shadow: none;
+  backdrop-filter: none;
 }
 
 .btn-primary:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 1);
+  background: #0f0f14;
+  border-color: #0f0f14;
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 24px rgba(26, 26, 46, 0.4);
 }
 
 .btn-primary:active {
   transform: translateY(0);
+  box-shadow: 0 4px 16px rgba(26, 26, 46, 0.3);
 }
 
 .btn-secondary {
-  background: transparent;
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.95);
+  color: #1a1a2e;
+  border-color: rgba(26, 26, 46, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   font-weight: 600;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 12px rgba(0, 0, 0, 0.3);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  text-shadow: none;
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 1);
+  background: #fff;
+  border-color: #1a1a2e;
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(26, 26, 46, 0.2);
 }
 
 @media (max-width: 640px) {
