@@ -14,6 +14,33 @@ const SUPPORT_LINKS = [
   { label: 'Privacy Policy', href: '#' },
   { label: 'Terms of Service', href: '#' },
 ]
+
+const SOCIAL_LINKS = [
+  { 
+    name: 'Facebook', 
+    href: 'https://facebook.com', 
+    icon: 'facebook',
+    ariaLabel: 'Follow us on Facebook'
+  },
+  { 
+    name: 'Twitter', 
+    href: 'https://twitter.com', 
+    icon: 'twitter',
+    ariaLabel: 'Follow us on Twitter'
+  },
+  { 
+    name: 'Instagram', 
+    href: 'https://instagram.com', 
+    icon: 'instagram',
+    ariaLabel: 'Follow us on Instagram'
+  },
+  { 
+    name: 'LinkedIn', 
+    href: 'https://linkedin.com', 
+    icon: 'linkedin',
+    ariaLabel: 'Follow us on LinkedIn'
+  },
+]
 </script>
 
 <template>
@@ -33,6 +60,33 @@ const SUPPORT_LINKS = [
           <p class="footer-tagline">
             Making event contributions seamless and meaningful for communities across Tanzania.
           </p>
+          <div class="footer-social">
+            <a
+              v-for="social in SOCIAL_LINKS"
+              :key="social.name"
+              :href="social.href"
+              :aria-label="social.ariaLabel"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="footer-social-link"
+            >
+              <svg v-if="social.icon === 'facebook'" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
+              </svg>
+              <svg v-else-if="social.icon === 'twitter'" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"/>
+              </svg>
+              <svg v-else-if="social.icon === 'instagram'" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+              </svg>
+              <svg v-else-if="social.icon === 'linkedin'" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6zM2 9h4v12H2z"/>
+                <circle cx="4" cy="4" r="2"/>
+              </svg>
+            </a>
+          </div>
         </div>
 
         <!-- Quick Links -->
@@ -179,7 +233,38 @@ const SUPPORT_LINKS = [
   font-size: 14px;
   color: #9ca3af;
   line-height: 1.6;
-  margin: 0;
+  margin: 0 0 20px 0;
+}
+
+.footer-social {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.footer-social-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  color: #9ca3af;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.footer-social-link:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.footer-social-link svg {
+  width: 20px;
+  height: 20px;
 }
 
 .footer-heading {
