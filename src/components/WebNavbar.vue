@@ -539,17 +539,13 @@ function onSearchSubmit() {
   left: 0;
   right: 0;
   z-index: 100;
-  background: rgba(26, 26, 46, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: #1a1a2e;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  transition: background 0.25s ease, border-color 0.25s ease, backdrop-filter 0.25s ease;
+  transition: background 0.25s ease, border-color 0.25s ease;
 }
 
 .navbar.navbar-scrolled {
-  background: rgba(26, 26, 46, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: #1a1a2e;
   border-bottom-color: rgba(255, 255, 255, 0.1);
 }
 
@@ -560,9 +556,7 @@ function onSearchSubmit() {
   justify-content: space-between;
   padding: 12px 14px;
   padding-top: max(12px, env(safe-area-inset-top));
-  background: rgba(26, 26, 46, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: #1a1a2e;
   min-height: 52px;
   gap: 10px;
   transition: background 0.25s ease, backdrop-filter 0.25s ease;
@@ -570,9 +564,7 @@ function onSearchSubmit() {
 }
 
 .navbar.navbar-scrolled .navbar-mobile {
-  background: rgba(26, 26, 46, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: #1a1a2e;
 }
 
 @media (max-width: 768px) {

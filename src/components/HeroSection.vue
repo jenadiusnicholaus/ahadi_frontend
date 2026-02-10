@@ -233,60 +233,9 @@ onMounted(() => {
 
 .hero-bg-solid {
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f1419 100%);
-  background-attachment: fixed;
 }
 
-/* CSS Animated Background - smooth zoom and pan effect */
-.hero-bg-animated {
-  animation: heroBackgroundAnimation 20s ease-in-out infinite;
-  background-size: 110% 110%;
-  opacity: 0.9;
-}
-
-@keyframes heroBackgroundAnimation {
-  0%, 100% {
-    transform: scale(1) translate(0, 0);
-    opacity: 0.9;
-  }
-  25% {
-    transform: scale(1.05) translate(-2%, -1%);
-    opacity: 0.92;
-  }
-  50% {
-    transform: scale(1.08) translate(1%, 2%);
-    opacity: 0.9;
-  }
-  75% {
-    transform: scale(1.05) translate(-1%, 1%);
-    opacity: 0.92;
-  }
-}
-
-/* Add subtle parallax-like movement */
-.hero-animated::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    circle at 30% 50%,
-    rgba(255, 255, 255, 0.1) 0%,
-    transparent 50%
-  );
-  animation: heroShimmer 8s ease-in-out infinite;
-  z-index: 1;
-  pointer-events: none;
-}
-
-@keyframes heroShimmer {
-  0%, 100% {
-    opacity: 0.3;
-    transform: translate(0, 0);
-  }
-  50% {
-    opacity: 0.5;
-    transform: translate(10px, -10px);
-  }
-}
+/* Unused animated classes removed for performance */
 
 /* Ensure image is visible */
 .hero-background-image {
@@ -295,18 +244,8 @@ onMounted(() => {
   pointer-events: none;
 }
 
-/* Subtle overlay for depth - removed heavy overlays for better text visibility */
 .hero::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    ellipse 60% 100% at 30% 50%,
-    rgba(0, 0, 0, 0.2) 0%,
-    transparent 60%
-  );
-  z-index: 1;
-  pointer-events: none;
+  display: none;
 }
 
 .hero::before {
@@ -573,10 +512,7 @@ onMounted(() => {
   letter-spacing: -0.02em;
   color: #ffffff;
   margin: 0 0 16px 0;
-  text-shadow: 
-    0 3px 8px rgba(0, 0, 0, 0.6),
-    0 0 20px rgba(0, 0, 0, 0.4),
-    0 6px 12px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
   overflow-wrap: break-word;
 }
 
@@ -639,10 +575,7 @@ onMounted(() => {
   position: relative;
   display: inline-block;
   color: #ffd700;
-  text-shadow: 
-    0 3px 8px rgba(0, 0, 0, 0.7),
-    0 0 16px rgba(255, 215, 0, 0.3),
-    0 6px 12px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 .hero-heading-accent::after {
@@ -671,10 +604,7 @@ onMounted(() => {
   color: #f0f0f0;
   max-width: 520px;
   margin: 0 0 24px 0;
-  text-shadow: 
-    0 2px 6px rgba(0, 0, 0, 0.6),
-    0 0 12px rgba(0, 0, 0, 0.4),
-    0 3px 8px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
   overflow-wrap: break-word;
   font-weight: 400;
 }
@@ -778,8 +708,6 @@ onMounted(() => {
   color: #1a1a2e;
   border-color: rgba(26, 26, 46, 0.2);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   font-weight: 600;
   text-shadow: none;
 }
@@ -937,50 +865,33 @@ onMounted(() => {
   text-align: center;
   min-width: 140px;
   border-radius: 16px;
-  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 
-    0 8px 24px rgba(0, 0, 0, 0.25),
-    0 2px 8px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  transition: transform 0.25s ease, border-color 0.25s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   position: relative;
   overflow: hidden;
 }
 
 .metric-box::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  display: none;
 }
 
 .metric-box:hover {
   border-color: rgba(255, 255, 255, 0.3);
   background: rgba(255, 255, 255, 0.15);
-  transform: translateY(-4px);
-  box-shadow: 
-    0 12px 32px rgba(0, 0, 0, 0.35),
-    0 4px 12px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
 }
 
 .metric-primary {
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 215, 0, 0.1) 100%);
-  border-color: rgba(255, 215, 0, 0.4);
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.15) 0%, rgba(255, 215, 0, 0.08) 100%);
+  border-color: rgba(255, 215, 0, 0.35);
   min-width: 220px;
   color: #fff;
-  box-shadow: 
-    0 12px 32px rgba(255, 215, 0, 0.2),
-    0 4px 16px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
 .metric-primary::before {
-  background: linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.4), transparent);
+  display: none;
 }
 
 .metric-primary .metric-label {
@@ -995,7 +906,7 @@ onMounted(() => {
 }
 
 .metric-primary:hover {
-  box-shadow: 0 10px 28px rgba(26, 26, 46, 0.28);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 
 .metric-small {
@@ -1051,7 +962,6 @@ onMounted(() => {
   color: rgba(255, 255, 255, 0.25);
   stroke-width: 2;
   opacity: 0.6;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
 }
 
 .connector-1-2 {
