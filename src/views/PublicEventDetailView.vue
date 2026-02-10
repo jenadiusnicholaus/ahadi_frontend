@@ -5,6 +5,8 @@ import { storeToRefs } from 'pinia'
 import WebNavbar from '@/components/WebNavbar.vue'
 import { assetUrl } from '@/api/client'
 import { fetchEventById, fetchEventParticipants, fetchEventContributions } from '@/api/event'
+import { fetchInvitationTemplateById } from '@/api/invitation-templates'
+import type { InvitationTemplate } from '@/api/invitation-templates'
 import JoinDialog from '@/components/JoinDialog.vue'
 import { useAuthStore } from '@/stores/auth'
 import type { PublicEvent } from '@/types/events'
@@ -28,6 +30,7 @@ const isOwner = computed(() => {
 })
 
 const event = ref<PublicEvent | null>(null)
+const invitationTemplate = ref<InvitationTemplate | null>(null)
 const loading = ref(true)
 const error = ref<Error | null>(null)
 const showJoinDialog = ref(false)
@@ -101,6 +104,19 @@ async function loadContributions() {
   }
 }
 
+async function loadInvitationTemplate() {
+  const templateId = event.value?.invitation_card_template
+  if (templateId == null) {
+    invitationTemplate.value = null
+    return
+  }
+  try {
+    invitationTemplate.value = await fetchInvitationTemplateById(templateId)
+  } catch {
+    invitationTemplate.value = null
+  }
+}
+
 async function load() {
   if (!eventId.value) {
     loading.value = false
@@ -109,7 +125,7 @@ async function load() {
   loading.value = true
   error.value = null
   await loadEvent()
-  await Promise.all([loadParticipants(), loadContributions()])
+  await Promise.all([loadParticipants(), loadContributions(), loadInvitationTemplate()])
   loading.value = false
 }
 
@@ -150,6 +166,19 @@ watch(() => route.params.id, () => load())
 const coverImageUrl = computed(() => {
   const raw = event.value?.cover_image
   return raw ? assetUrl(raw) : ''
+})
+
+const showInvitationCard = computed(() => {
+  const ev = event.value
+  return !!(ev?.custom_invitation_image || ev?.invitation_card_template)
+})
+
+const invitationImageUrl = computed(() => {
+  const ev = event.value
+  if (ev?.custom_invitation_image) return assetUrl(ev.custom_invitation_image)
+  const t = invitationTemplate.value
+  if (!t) return ''
+  return t.preview_image_url || (t.preview_image ? assetUrl(t.preview_image) : '')
 })
 
 const startDate = computed(() => {
@@ -487,6 +516,31 @@ const shareCardTagline = computed(() => {
                 </div>
               </div>
             </div>
+
+            <!-- Invitation Card (Flutter-style card) -->
+            <div v-if="showInvitationCard" class="invitation-card-section">
+              <h3 class="invitation-card-section-title">Invitation Card</h3>
+              <div class="invitation-card-dart">
+                <div v-if="event.custom_invitation_image || invitationImageUrl" class="invitation-card-inner">
+                  <img
+                    v-if="invitationImageUrl"
+                    :src="invitationImageUrl"
+                    :alt="invitationTemplate?.name || 'Invitation'"
+                    class="invitation-card-img"
+                    @error="($event.target as HTMLImageElement)?.classList?.add('img-error')"
+                  />
+                  <div v-else class="invitation-card-loading">
+                    <div class="loader" aria-hidden="true" />
+                    <span>Loading invitation…</span>
+                  </div>
+                </div>
+                <div v-else-if="event.invitation_card_template" class="invitation-card-loading">
+                  <div class="loader" aria-hidden="true" />
+                  <span>Loading invitation…</span>
+                </div>
+                <p v-if="invitationTemplate?.name" class="invitation-card-caption">{{ invitationTemplate.name }}</p>
+              </div>
+            </div>
           </div>
 
           <!-- Right Column: Donation Widget -->
@@ -518,6 +572,14 @@ const shareCardTagline = computed(() => {
                   </router-link>
                 </div>
                 <div v-if="isOwner" class="actions-row">
+                  <router-link :to="{ name: 'events-announcements', params: { id: String(eventId) } }" class="action-tile">
+                    <span class="action-icon">🔔</span>
+                    <span class="action-label">Notifications</span>
+                  </router-link>
+                  <router-link :to="{ name: 'events-invitations', params: { id: String(eventId) } }" class="action-tile">
+                    <span class="action-icon">✉️</span>
+                    <span class="action-label">Invitations</span>
+                  </router-link>
                   <router-link :to="{ name: 'events-wallet', params: { id: String(eventId) } }" class="action-tile">
                     <span class="action-icon">👛</span>
                     <span class="action-label">Wallet</span>
@@ -599,16 +661,37 @@ const shareCardTagline = computed(() => {
                 </button>
               </div>
 
-              <!-- Join and Get code (2 buttons) -->
+              <!-- Join and Get code -->
               <div class="action-card">
-                <button type="button" class="action-card-btn action-card-join" @click="openJoin">
-                  <span class="action-card-icon action-card-icon-join">👤</span>
-                  Join
-                </button>
-                <button type="button" class="action-card-btn action-card-light" @click="copyJoinCode" :disabled="!event.join_code">
-                  <span class="action-card-icon action-card-icon-code">🔗</span>
-                  {{ joinCodeCopied ? 'Copied!' : 'Get code' }}
-                </button>
+                <!-- Guest / non-owner: show Join + Get code side by side -->
+                <template v-if="!isOwner">
+                  <button type="button" class="action-card-btn action-card-join" @click="openJoin">
+                    <span class="action-card-icon action-card-icon-join">👤</span>
+                    Join
+                  </button>
+                  <button
+                    type="button"
+                    class="action-card-btn action-card-light"
+                    @click="copyJoinCode"
+                    :disabled="!event.join_code"
+                  >
+                    <span class="action-card-icon action-card-icon-code">🔗</span>
+                    {{ joinCodeCopied ? 'Copied!' : 'Get code' }}
+                  </button>
+                </template>
+
+                <!-- Owner: only show Get code, full-width -->
+                <template v-else>
+                  <button
+                    type="button"
+                    class="action-card-btn action-card-light"
+                    @click="copyJoinCode"
+                    :disabled="!event.join_code"
+                  >
+                    <span class="action-card-icon action-card-icon-code">🔗</span>
+                    {{ joinCodeCopied ? 'Copied!' : 'Get code' }}
+                  </button>
+                </template>
               </div>
 
               <!-- Contributors (from contributions API) -->
@@ -984,6 +1067,73 @@ const shareCardTagline = computed(() => {
   line-height: 1.4;
 }
 
+/* Invitation Card (Flutter/Material-style card) */
+.invitation-card-section {
+  margin-top: 2rem;
+}
+
+.invitation-card-section-title {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.invitation-card-dart {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 10px 20px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  max-width: 420px;
+}
+
+.invitation-card-inner {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3/4;
+  min-height: 280px;
+  background: linear-gradient(145deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.invitation-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.invitation-card-img.img-error {
+  object-fit: contain;
+  background: #f1f3f5;
+}
+
+.invitation-card-caption {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+  text-align: center;
+  border-top: 1px solid #e5e7eb;
+}
+
+.invitation-card-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  min-height: 200px;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.invitation-card-loading .loader {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+}
+
 /* Right Column - Donation Widget */
 .event-right {
   position: sticky;
@@ -1340,7 +1490,7 @@ const shareCardTagline = computed(() => {
 }
 
 .public-quick-actions .action-tile:hover {
-  background: #f8fafc;
+  background: #fff;
   border-color: #1a283b;
 }
 

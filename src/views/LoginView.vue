@@ -11,8 +11,8 @@ const featureItems = [
 
 <template>
   <div class="login-page">
-    <!-- Mobile header (logo + hamburger): only visible on mobile -->
-    <div class="login-mobile-header">
+    <!-- Navbar: always visible so login content does not cover it -->
+    <div class="login-navbar-wrap">
       <WebNavbar />
     </div>
 
@@ -120,21 +120,11 @@ const featureItems = [
 .login-page {
   min-height: 100vh;
   background: #fff;
+  /* Reserve space for fixed navbar so login content does not cover it */
+  padding-top: 72px;
+  box-sizing: border-box;
 }
 
-/* Mobile header: only on small screens; sticky so it stays when scrolling */
-.login-mobile-header {
-  display: block;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-@media (min-width: 769px) {
-  .login-mobile-header {
-    display: none;
-  }
-}
 
 /* Desktop layout: visible from 769px */
 .login-desktop {

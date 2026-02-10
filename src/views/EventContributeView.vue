@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import WebNavbar from '@/components/WebNavbar.vue'
+import PaymentStatusModal from '@/components/PaymentStatusModal.vue'
 import { getApiBaseUrl } from '@/api/env'
 import { fetchEventById } from '@/api/event'
 import { checkoutMno } from '@/api/payments'
@@ -21,6 +22,10 @@ const amountInput = ref('')
 const messageInput = ref('')
 const nameInput = ref('')
 const selectedProvider = ref<string | null>(null)
+const providerDropdownOpen = ref(false)
+const providerDropdownRef = ref<HTMLElement | null>(null)
+const showSuccessModal = ref(false)
+const showErrorModal = ref(false)
 const phoneInput = ref('')
 const submitting = ref(false)
 const submitError = ref('')
@@ -68,6 +73,26 @@ const currentPresetMatch = computed(() =>
     : null
 )
 
+const selectedProviderLabel = computed(() => {
+  if (!selectedProvider.value) return ''
+  const p = PROVIDERS.find((x) => x.value === selectedProvider.value)
+  return p ? p.label : selectedProvider.value
+})
+
+const successMessage = computed(() => {
+  if (!event.value) return ''
+  const owner = event.value.owner_name || 'Event creator'
+  const typeName = event.value.event_type_name ? ` (${event.value.event_type_name})` : ''
+  return `${owner} says thank you for your contribution to ${event.value.title}${typeName}.`
+})
+
+const errorMessage = computed(() => {
+  if (!submitError.value) {
+    return 'Something went wrong starting your payment. Please try again.'
+  }
+  return submitError.value
+})
+
 function formatAmount(value: number): string {
   return Number.isFinite(value) ? value.toLocaleString() : '0'
 }
@@ -96,10 +121,25 @@ onMounted(() => {
   if (user.value?.full_name) {
     nameInput.value = user.value.full_name
   }
+  document.addEventListener('click', handleClickOutside)
+})
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
 })
 
 function setPreset(amount: number) {
   amountInput.value = String(amount)
+}
+
+function selectProvider(value: string) {
+  selectedProvider.value = value
+  providerDropdownOpen.value = false
+}
+
+function handleClickOutside(e: MouseEvent) {
+  if (providerDropdownRef.value && !providerDropdownRef.value.contains(e.target as Node)) {
+    providerDropdownOpen.value = false
+  }
 }
 
 function formatPhoneForApi(phoneStr: string): string {
@@ -111,6 +151,11 @@ function formatPhoneForApi(phoneStr: string): string {
 
 function goBack() {
   router.push({ name: 'event-public', params: { id: String(eventId.value) } })
+}
+
+function handleSuccessPrimary() {
+  showSuccessModal.value = false
+  goBack()
 }
 
 async function submitContribute() {
@@ -140,9 +185,10 @@ async function submitContribute() {
       ...(nameInput.value?.trim() ? { payer_name: nameInput.value.trim() } : {}),
       ...(messageInput.value?.trim() ? { message: messageInput.value.trim() } : {}),
     })
-    goBack()
+    showSuccessModal.value = true
   } catch (e: unknown) {
     submitError.value = e instanceof Error ? e.message : 'Payment could not be started. Try again.'
+    showErrorModal.value = true
   } finally {
     submitting.value = false
   }
@@ -153,7 +199,15 @@ async function submitContribute() {
   <div class="contribute-page">
     <WebNavbar />
     <main class="contribute-main">
-      <button type="button" class="contribute-back" @click="goBack">Back</button>
+      <nav v-if="event" class="contribute-breadcrumbs" aria-label="Breadcrumb">
+        <button type="button" class="breadcrumb-link" @click="router.push({ name: 'home' })">Home</button>
+        <span class="breadcrumb-sep">/</span>
+        <button type="button" class="breadcrumb-link" @click="router.push({ name: 'events' })">Events</button>
+        <span class="breadcrumb-sep">/</span>
+        <button type="button" class="breadcrumb-link" @click="goBack">{{ event.title }}</button>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">Contribute</span>
+      </nav>
 
       <template v-if="loading">
         <div class="contribute-state">Loading…</div>
@@ -228,20 +282,37 @@ async function submitContribute() {
             <h3 class="contribute-payment-heading">Choose payment method</h3>
             <div class="contribute-payment-tabs">
               <span class="contribute-payment-tab active">Mobile Money</span>
-              <span class="contribute-payment-tab inactive">Card</span>
             </div>
+            
             <div class="contribute-payment-card">
               <label class="contribute-payment-field">
                 <span class="contribute-payment-label">Provider <span class="required">*</span></span>
-                <select
-                  v-model="selectedProvider"
-                  class="contribute-payment-input"
-                  :class="{ 'contribute-payment-input--placeholder': !selectedProvider }"
-                  required
-                >
-                  <option value="" disabled selected>Choose mobile network</option>
-                  <option v-for="p in PROVIDERS" :key="p.value" :value="p.value">{{ p.label }}</option>
-                </select>
+                <div ref="providerDropdownRef" class="contribute-select-wrap">
+                  <span v-show="!selectedProvider" class="contribute-select-placeholder" aria-hidden="true">Select provider</span>
+                  <button
+                    type="button"
+                    class="contribute-payment-input contribute-payment-select contribute-select-trigger"
+                    :class="{ 'contribute-payment-input--empty': !selectedProvider }"
+                    aria-haspopup="listbox"
+                    :aria-expanded="providerDropdownOpen"
+                    @click.stop="providerDropdownOpen = !providerDropdownOpen"
+                  >
+                    {{ selectedProviderLabel }}
+                  </button>
+                  <div v-show="providerDropdownOpen" class="contribute-select-dropdown" role="listbox">
+                    <button
+                      v-for="p in PROVIDERS"
+                      :key="p.value"
+                      type="button"
+                      role="option"
+                      class="contribute-select-option"
+                      :aria-selected="selectedProvider === p.value"
+                      @click.stop="selectProvider(p.value)"
+                    >
+                      {{ p.label }}
+                    </button>
+                  </div>
+                </div>
               </label>
               <label class="contribute-payment-field">
                 <span class="contribute-payment-label">Phone Number <span class="required">*</span></span>
@@ -268,6 +339,24 @@ async function submitContribute() {
           </section>
         </div>
       </template>
+
+      <PaymentStatusModal
+        v-model="showSuccessModal"
+        variant="success"
+        title="Contribution started"
+        :message="successMessage"
+        primary-label="Back to event"
+        @primary="handleSuccessPrimary"
+      />
+
+      <PaymentStatusModal
+        v-model="showErrorModal"
+        variant="error"
+        title="Payment failed"
+        :message="errorMessage"
+        primary-label="Try again"
+        @primary="showErrorModal = false"
+      />
     </main>
   </div>
 </template>
@@ -281,7 +370,14 @@ async function submitContribute() {
 .contribute-main {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 72px 24px 48px;
+  /* Extra top padding so fixed navbar doesn't overlap breadcrumb */
+  padding: 96px 24px 48px;
+}
+
+@media (max-width: 768px) {
+  .contribute-main {
+    padding: 88px 16px 32px;
+  }
 }
 
 .contribute-layout {
@@ -338,18 +434,36 @@ async function submitContribute() {
   font-size: 5rem;
 }
 
-.contribute-back {
-  display: inline-flex;
+/* Breadcrumbs: Home / Events / Event name / Contribute */
+.contribute-breadcrumbs {
+  display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 1.5rem;
-  padding: 0.5rem 0;
-  font-size: 0.9375rem;
-  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.contribute-breadcrumbs .breadcrumb-link {
   background: none;
   border: none;
+  color: #3b82f6;
   cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  text-decoration: underline;
 }
-.contribute-back:hover {
+
+.contribute-breadcrumbs .breadcrumb-link:hover {
+  color: #2563eb;
+}
+
+.contribute-breadcrumbs .breadcrumb-sep {
+  color: #9ca3af;
+}
+
+.contribute-breadcrumbs .breadcrumb-current {
   color: #111827;
 }
 
@@ -487,7 +601,7 @@ async function submitContribute() {
 }
 
 .contribute-payment-card {
-  background: #fff;
+  background: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   padding: 1.25rem 1.25rem;
@@ -517,15 +631,101 @@ async function submitContribute() {
 .contribute-payment-input {
   width: 100%;
   padding: 0.75rem 1rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid #e5e7eb;
   border-radius: 10px;
   font-size: 0.9375rem;
   font-family: inherit;
-  background: #fff;
+  background: #f9fafb;
   box-sizing: border-box;
 }
+
+.contribute-payment-input:hover {
+  border-color: #d1d5db;
+}
+
+.contribute-payment-select {
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+.contribute-payment-select option {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.contribute-select-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.contribute-select-trigger {
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+  color: #111827;
+}
+
+.contribute-select-placeholder {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b7280;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  font-family: inherit;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.contribute-payment-input--empty {
+  color: transparent;
+}
+
+.contribute-select-dropdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.contribute-select-option {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #111827;
+  background: #fff;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.contribute-select-option:hover,
+.contribute-select-option:focus {
+  background: #f3f4f6;
+  color: #111827;
+  outline: none;
+}
+
+.contribute-select-option[aria-selected="true"] {
+  background: #eff6ff;
+  color: #111827;
+}
+
 .contribute-payment-input--placeholder {
-  color: #9ca3af;
+  color: #6b7280;
 }
 .contribute-payment-input:focus {
   outline: none;

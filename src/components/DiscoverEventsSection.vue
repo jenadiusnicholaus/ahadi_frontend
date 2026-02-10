@@ -8,6 +8,7 @@ withDefaults(
     loading?: boolean
     error: Error | null
     hasActiveFilters?: boolean
+    onJoinWithCode?: () => void
   }>(),
   { loading: false, hasActiveFilters: false }
 )
@@ -31,15 +32,25 @@ function onCardClick(event: PublicEvent) {
     <div class="section-header">
       <span class="section-label">DISCOVER</span>
       <h2 class="section-title">Explore upcoming events</h2>
-      <button
-        v-if="hasActiveFilters"
-        type="button"
-        class="btn-clear"
-        @click="onClearFilters"
-      >
-        <span class="btn-clear-icon" aria-hidden="true">✕</span>
-        Clear filters
-      </button>
+      <div class="section-header-actions">
+        <button
+          v-if="onJoinWithCode"
+          type="button"
+          class="btn-join-code"
+          @click="onJoinWithCode()"
+        >
+          Join with Code
+        </button>
+        <button
+          v-if="hasActiveFilters"
+          type="button"
+          class="btn-clear"
+          @click="onClearFilters"
+        >
+          <span class="btn-clear-icon" aria-hidden="true">✕</span>
+          Clear filters
+        </button>
+      </div>
     </div>
     <div class="section-spacer" />
 
@@ -77,10 +88,12 @@ function onCardClick(event: PublicEvent) {
 <style scoped>
 .discover-section {
   width: 100%;
+  max-width: 100%;
   margin: 0;
   padding: 32px 24px 48px;
   box-sizing: border-box;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow-x: hidden;
 }
 
 @media (max-width: 1024px) {
@@ -141,6 +154,32 @@ function onCardClick(event: PublicEvent) {
   letter-spacing: -0.02em;
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.section-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-join-code {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: #1a283b;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.btn-join-code:hover {
+  background: #0f172a;
+  transform: translateY(-1px);
 }
 
 .section-spacer {

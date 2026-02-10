@@ -76,12 +76,14 @@ function selectType(typeId: number | null) {
 <style scoped>
 .event-types-section {
   width: 100%;
+  max-width: 100%;
   margin: 0;
   padding: 36px 24px 32px;
   background: linear-gradient(180deg, #fafafa 0%, #f5f5f5 100%);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   box-sizing: border-box;
   border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  overflow-x: hidden;
 }
 
 @media (max-width: 1024px) {
@@ -158,6 +160,8 @@ function selectType(typeId: number | null) {
 
 .chips-wrap {
   min-height: 52px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .chips-scroll {
@@ -168,6 +172,7 @@ function selectType(typeId: number | null) {
   padding-bottom: 0;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  min-width: 0;
 }
 
 .chips-scroll::-webkit-scrollbar {

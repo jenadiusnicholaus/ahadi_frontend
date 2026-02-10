@@ -240,15 +240,17 @@ function formatParticipantAmount(value: string): string {
       <div v-else-if="error" class="state state-error">
         <p class="error-message">{{ error.message }}</p>
         <button type="button" class="btn-retry" @click="load">Try again</button>
-        <button type="button" class="btn-back" @click="goBack">Back to Events</button>
+        <button type="button" class="btn-back" @click="goBack">Events</button>
       </div>
 
       <template v-else-if="event">
-        <!-- Back -->
-        <button type="button" class="back-link" aria-label="Back to events" @click="goBack">
-          <span class="back-icon" aria-hidden="true">←</span>
-          Back to Events
-        </button>
+        <nav class="detail-breadcrumbs" aria-label="Breadcrumb">
+          <button type="button" class="breadcrumb-link" @click="router.push({ name: 'home' })">Home</button>
+          <span class="breadcrumb-sep">/</span>
+          <button type="button" class="breadcrumb-link" @click="goBack">Events</button>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">{{ event.title }}</span>
+        </nav>
 
         <!-- Header -->
         <header class="detail-header">
@@ -445,14 +447,46 @@ function formatParticipantAmount(value: string): string {
 <style scoped>
 .event-detail-page {
   min-height: 100vh;
-  background: #f8fafc;
+  background: #fff;
 }
 
 .event-detail-main {
   max-width: 720px;
   margin: 0 auto;
-  padding: 24px 20px 48px;
-  padding-top: 72px;
+  padding: 96px 24px 48px;
+}
+@media (max-width: 768px) {
+  .event-detail-main {
+    padding: 88px 16px 32px;
+  }
+}
+
+.detail-breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+}
+.detail-breadcrumbs .breadcrumb-link {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  text-decoration: underline;
+}
+.detail-breadcrumbs .breadcrumb-link:hover {
+  color: #2563eb;
+}
+.detail-breadcrumbs .breadcrumb-sep {
+  color: #9ca3af;
+}
+.detail-breadcrumbs .breadcrumb-current {
+  color: #111827;
 }
 
 .state {
@@ -494,27 +528,6 @@ function formatParticipantAmount(value: string): string {
 .btn-retry:hover,
 .btn-back:hover {
   background: #f9fafb;
-}
-
-.back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 20px;
-  padding: 8px 0;
-  font-size: 14px;
-  color: #6b7280;
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-
-.back-link:hover {
-  color: #1a283b;
-}
-
-.back-icon {
-  font-size: 18px;
 }
 
 .detail-header {

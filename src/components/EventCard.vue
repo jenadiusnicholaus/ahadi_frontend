@@ -100,15 +100,18 @@ function onClick() {
         <span class="meta-icon" aria-hidden="true">📍</span>
         <span class="meta-text">{{ event.location }}</span>
       </div>
+      <div v-if="contributionTarget > 0" class="card-progress-wrap" aria-label="Contribution progress">
+        <div class="card-progress-bar">
+          <div class="card-progress-fill" :style="{ width: `${progressPercent}%` }" />
+        </div>
+        <span class="card-progress-label">{{ progressPercent }}%</span>
+      </div>
       <div class="card-footer">
         <span class="card-participants">
           <span class="meta-icon" aria-hidden="true">👥</span>
           {{ participantCount }} participating
         </span>
         <div class="card-footer-right">
-          <div v-if="contributionTarget > 0" class="card-progress">
-            <span class="progress-label">{{ progressPercent }}%</span>
-          </div>
           <slot name="actions" />
         </div>
       </div>
@@ -301,16 +304,33 @@ function onClick() {
   gap: 4px;
 }
 
-.card-progress {
-  font-size: 12px;
-  font-weight: 600;
-  color: hsl(220, 12%, 25%);
-  background: #f3f4f6;
-  padding: 4px 8px;
-  border-radius: 6px;
+.card-progress-wrap {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.progress-label {
+.card-progress-bar {
+  flex: 1;
+  min-width: 0;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.card-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+
+.card-progress-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #16a34a;
   white-space: nowrap;
 }
 </style>

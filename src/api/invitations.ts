@@ -3,7 +3,7 @@
  * Invitation CRUD: list, get, create, update, delete, send.
  */
 
-import { get, post, put, patch, del } from './client'
+import { getWithAuth, post, put, patch, del } from './client'
 import { getInvitationsPrefix } from '@/api/env'
 
 const invitationsPath = (suffix: string) => `${getInvitationsPrefix()}/${suffix}`
@@ -54,14 +54,20 @@ export interface InvitationUpdatePayload extends Partial<InvitationCreatePayload
 
 // --- Endpoints ---
 
+export interface FetchInvitationsParams {
+  page?: number
+  event?: number
+}
+
 /**
  * GET /api/v1/invitations/
- * List invitations. Params: page.
+ * List invitations. Params: page, event (filter by event id).
  */
-export function fetchInvitations(params?: { page?: number }): Promise<PaginatedInvitationsResponse> {
+export function fetchInvitations(params?: FetchInvitationsParams): Promise<PaginatedInvitationsResponse> {
   const search: Record<string, string> = {}
   if (params?.page != null) search.page = String(params.page)
-  return get<PaginatedInvitationsResponse>(
+  if (params?.event != null) search.event = String(params.event)
+  return getWithAuth<PaginatedInvitationsResponse>(
     invitationsPath(''),
     Object.keys(search).length ? search : undefined
   )
@@ -80,7 +86,7 @@ export function createInvitation(payload: InvitationCreatePayload): Promise<Invi
  * Get invitation by id.
  */
 export function fetchInvitationById(id: number): Promise<Invitation> {
-  return get<Invitation>(invitationsPath(`${id}/`))
+  return getWithAuth<Invitation>(invitationsPath(`${id}/`))
 }
 
 /**
@@ -88,7 +94,7 @@ export function fetchInvitationById(id: number): Promise<Invitation> {
  * Full update.
  */
 export function updateInvitation(id: number, payload: InvitationUpdatePayload): Promise<Invitation> {
-  return put<Invitation>(`invitations/${id}/`, payload)
+  return put<Invitation>(invitationsPath(`${id}/`), payload)
 }
 
 /**

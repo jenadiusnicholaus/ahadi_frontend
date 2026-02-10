@@ -39,6 +39,22 @@ export interface PaginatedInvitationTemplatesResponse {
   results: InvitationTemplate[]
 }
 
+/** Category option from GET invitation-templates/categories/ (may be object or string). */
+export interface InvitationTemplateCategoryOption {
+  category?: string
+  category_display?: string
+  name?: string
+  id?: number
+  [key: string]: unknown
+}
+
+/** Normalize API response to InvitationTemplate[]. */
+function normalizeTemplateList(data: unknown): InvitationTemplate[] {
+  if (Array.isArray(data)) return data as InvitationTemplate[]
+  const o = data as PaginatedInvitationTemplatesResponse | null
+  return (o?.results ?? []) as InvitationTemplate[]
+}
+
 // --- Endpoints ---
 
 /**
@@ -64,32 +80,48 @@ export function fetchInvitationTemplateById(id: number): Promise<InvitationTempl
 
 /**
  * GET /api/v1/invitation-templates/categories/
- * List available template categories.
+ * List available template categories. Returns array of category options (or strings).
  */
-export function fetchInvitationTemplateCategories(): Promise<unknown> {
-  return get<unknown>(invitationTemplatesPath('categories/'))
+export function fetchInvitationTemplateCategories(): Promise<InvitationTemplateCategoryOption[]> {
+  return get<
+    | InvitationTemplateCategoryOption[]
+    | string[]
+    | { results?: InvitationTemplateCategoryOption[] | string[] }
+  >(invitationTemplatesPath('categories/')).then((data) => {
+    if (Array.isArray(data)) {
+      return data.map((c) =>
+        typeof c === 'string' ? { category: c, category_display: c } : (c as InvitationTemplateCategoryOption)
+      ) as InvitationTemplateCategoryOption[]
+    }
+    const results = (data as { results?: InvitationTemplateCategoryOption[] }).results ?? []
+    return Array.isArray(results)
+      ? (results.map((c) =>
+          typeof c === 'string' ? { category: c, category_display: c } : (c as InvitationTemplateCategoryOption)
+        ) as InvitationTemplateCategoryOption[])
+      : []
+  })
 }
 
 /**
  * GET /api/v1/invitation-templates/by_category/
- * Filter by category. Params: category (e.g. WEDDING).
+ * Filter by category. Params: category (e.g. WEDDING). Returns list of templates.
  */
-export function fetchInvitationTemplatesByCategory(category: string): Promise<unknown> {
-  return get<unknown>(invitationTemplatesPath('by_category/'), { category })
+export function fetchInvitationTemplatesByCategory(category: string): Promise<InvitationTemplate[]> {
+  return get<unknown>(invitationTemplatesPath('by_category/'), { category }).then(normalizeTemplateList)
 }
 
 /**
  * GET /api/v1/invitation-templates/free_templates/
  * Get free templates.
  */
-export function fetchFreeInvitationTemplates(): Promise<unknown> {
-  return get<unknown>(invitationTemplatesPath('free_templates/'))
+export function fetchFreeInvitationTemplates(): Promise<InvitationTemplate[]> {
+  return get<unknown>(invitationTemplatesPath('free_templates/')).then(normalizeTemplateList)
 }
 
 /**
  * GET /api/v1/invitation-templates/premium_templates/
  * Get premium templates.
  */
-export function fetchPremiumInvitationTemplates(): Promise<unknown> {
-  return get<unknown>(invitationTemplatesPath('premium_templates/'))
+export function fetchPremiumInvitationTemplates(): Promise<InvitationTemplate[]> {
+  return get<unknown>(invitationTemplatesPath('premium_templates/')).then(normalizeTemplateList)
 }

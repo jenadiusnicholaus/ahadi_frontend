@@ -4,6 +4,9 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { setLogoutHandler } from '@/api/axiosInstance'
+import { APP_NAME } from '@/config/app'
+
+document.title = APP_NAME
 
 const app = createApp(App)
 const pinia = createPinia()

@@ -31,6 +31,15 @@ export interface EventCreatePayload {
   contribution_target?: string
   currency?: string
   cover_image?: string
+  chat_enabled?: boolean
+  invitation_card_template?: number | null
+  wedding_groom_name?: string
+  wedding_bride_name?: string
+  wedding_ceremony_time?: string
+  wedding_reception_time?: string
+  wedding_reception_venue?: string
+  wedding_dress_code?: string
+  wedding_rsvp_phone?: string
   [key: string]: unknown
 }
 

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import WebNavbar from '@/components/WebNavbar.vue'
 import {
   fetchSubscriptionPlans,
@@ -27,7 +26,6 @@ interface Plan {
   [key: string]: unknown
 }
 
-const router = useRouter()
 const loading = ref(true)
 const error = ref('')
 const plans = ref<Plan[]>([])
@@ -91,10 +89,6 @@ async function load() {
   } finally {
     loading.value = false
   }
-}
-
-function goBack() {
-  router.push({ name: 'profile' })
 }
 
 function planColor(planType: string): string {
@@ -187,6 +181,28 @@ async function doSubscribe() {
   }
 }
 
+/** Plan order for steps (Premium is step 3 / highlighted). */
+const PLAN_ORDER = ['FREE', 'BASIC', 'PREMIUM', 'VIP', 'INSTITUTIONAL']
+
+const sortedPlans = computed(() => {
+  const list = [...plans.value]
+  return list.sort((a, b) => {
+    const aType = (a.plan_type ?? 'FREE').toUpperCase()
+    const bType = (b.plan_type ?? 'FREE').toUpperCase()
+    return PLAN_ORDER.indexOf(aType) - PLAN_ORDER.indexOf(bType)
+  })
+})
+
+function isPremiumPlan(plan: Plan): boolean {
+  return (plan.plan_type ?? '').toUpperCase() === 'PREMIUM'
+}
+
+function stepNumber(plan: Plan): number {
+  const t = (plan.plan_type ?? 'FREE').toUpperCase()
+  const i = PLAN_ORDER.indexOf(t)
+  return i >= 0 ? i + 1 : 0
+}
+
 function yearlySavingsPercent(plan: Plan): number {
   const monthly = plan.price_monthly ?? 0
   const yearly = plan.price_yearly ?? 0
@@ -227,7 +243,6 @@ onMounted(load)
     <WebNavbar />
     <main class="subscriptions-main">
       <header class="sub-header">
-        <button type="button" class="btn-back" aria-label="Back to profile" @click="goBack">← Back</button>
         <h1 class="sub-title">Subscription Plans</h1>
       </header>
 
@@ -237,46 +252,47 @@ onMounted(load)
         <button type="button" class="btn-retry" @click="load">Retry</button>
       </div>
       <template v-else>
-        <!-- Current Plan Card (Flutter-style) -->
-        <section class="current-plan-card" :style="{ borderColor: planColor((currentSubscription?.plan_type as string) ?? '') + '50' }">
-          <div
-            class="current-plan-inner"
-            :style="{
-              background: `linear-gradient(135deg, ${planColor((currentSubscription?.plan_type as string) ?? '')}20, ${planColor((currentSubscription?.plan_type as string) ?? '')}08)`,
-            }"
-          >
+        <div class="plans-top-row">
+          <!-- Current Plan Card (Flutter-style) -->
+          <section class="current-plan-card" :style="{ borderColor: planColor((currentSubscription?.plan_type as string) ?? '') + '50' }">
             <div
-              class="current-plan-icon"
-              :style="{ backgroundColor: planColor((currentSubscription?.plan_type as string) ?? '') + '30' }"
+              class="current-plan-inner"
+              :style="{
+                background: `linear-gradient(135deg, ${planColor((currentSubscription?.plan_type as string) ?? '')}20, ${planColor((currentSubscription?.plan_type as string) ?? '')}08)`,
+              }"
             >
-              {{ planIcon((currentSubscription?.plan_type as string) ?? '') }}
-            </div>
-            <div class="current-plan-text">
-              <span class="current-plan-label">Current Plan</span>
-              <span
-                class="current-plan-name"
-                :style="{ color: planColor((currentSubscription?.plan_type as string) ?? '') }"
+              <div
+                class="current-plan-icon"
+                :style="{ backgroundColor: planColor((currentSubscription?.plan_type as string) ?? '') + '30' }"
               >
-                {{ (currentSubscription?.plan_name ?? currentSubscription?.plan ?? 'Free') }}
-              </span>
-              <span v-if="currentSubscription?.expires_at" class="current-plan-expiry">
-                Expires in {{ currentSubscription?.days_remaining ?? 0 }} days
-              </span>
+                {{ planIcon((currentSubscription?.plan_type as string) ?? '') }}
+              </div>
+              <div class="current-plan-text">
+                <span class="current-plan-label">Current Plan</span>
+                <span
+                  class="current-plan-name"
+                  :style="{ color: planColor((currentSubscription?.plan_type as string) ?? '') }"
+                >
+                  {{ (currentSubscription?.plan_name ?? currentSubscription?.plan ?? 'Free') }}
+                </span>
+                <span v-if="currentSubscription?.expires_at" class="current-plan-expiry">
+                  Expires in {{ currentSubscription?.days_remaining ?? 0 }} days
+                </span>
+              </div>
+              <div class="current-plan-fee">
+                <span class="current-plan-fee-label">Fee</span>
+                <span
+                  class="current-plan-fee-value"
+                  :style="{ color: planColor((currentSubscription?.plan_type as string) ?? '') }"
+                >
+                  {{ (currentSubscription?.transaction_fee_percent ?? 5) }}%
+                </span>
+              </div>
             </div>
-            <div class="current-plan-fee">
-              <span class="current-plan-fee-label">Fee</span>
-              <span
-                class="current-plan-fee-value"
-                :style="{ color: planColor((currentSubscription?.plan_type as string) ?? '') }"
-              >
-                {{ (currentSubscription?.transaction_fee_percent ?? 5) }}%
-              </span>
-            </div>
-          </div>
-        </section>
+          </section>
 
-        <!-- Value Proposition Card -->
-        <section v-if="recommendation?.message" class="value-card">
+          <!-- Value Proposition Card -->
+          <section v-if="recommendation?.message" class="value-card">
           <div class="value-header">
             <span class="value-icon">💡</span>
             <span class="value-message">{{ recommendation.message.replace(/^💡\s*/, '') }}</span>
@@ -297,67 +313,82 @@ onMounted(load)
             </div>
           </div>
         </section>
+        </div>
 
-        <!-- Choose Your Plan -->
+        <!-- Choose Your Plan - Steps (Premium highlighted) -->
         <h2 class="section-title">Choose Your Plan</h2>
-        <p class="section-subtitle">Upgrade to unlock more features and reduce fees</p>
+        <p class="section-subtitle">Upgrade step by step — Premium gives you the best value</p>
 
-        <!-- Plan Cards -->
-        <div v-for="(plan, i) in plans" :key="i" class="plan-card" :style="{ borderColor: isCurrentPlan(plan) ? planColor(plan.plan_type as string) : '#e2e8f0' }">
-          <div class="plan-card-header" :style="{ background: planColor(plan.plan_type as string) + '15' }">
-            <div class="plan-card-header-left">
-              <span class="plan-card-name" :style="{ color: planColor(plan.plan_type as string) }">
-                {{ plan.name ?? plan.plan_type ?? 'Plan' }}
-              </span>
-              <span v-if="isCurrentPlan(plan)" class="plan-badge">CURRENT</span>
-              <p class="plan-card-desc">
-                {{ plan.description || `Perfect for ${(plan.plan_type ?? '').toLowerCase()} users` }}
-              </p>
-            </div>
-            <div class="plan-card-price-wrap">
-              <span class="plan-card-price" :style="{ color: planColor(plan.plan_type as string) }">
-                {{ formattedMonthlyPrice(plan) }}
-              </span>
-              <span class="plan-card-period">/month</span>
-            </div>
-          </div>
-          <div class="plan-card-body">
-            <div class="plan-stats-row">
-              <div class="plan-stat">
-                <span class="plan-stat-icon">📅</span>
-                <span class="plan-stat-value">{{ plan.max_events === -1 ? 'Unlimited' : (plan.max_events ?? 0) }}</span>
-                <span class="plan-stat-label">Events</span>
-              </div>
-              <div class="plan-stat">
-                <span class="plan-stat-icon">👥</span>
-                <span class="plan-stat-value">{{ plan.max_participants_per_event ?? 0 }}</span>
-                <span class="plan-stat-label">Participants</span>
-              </div>
-              <div class="plan-stat">
-                <span class="plan-stat-icon">%</span>
-                <span class="plan-stat-value">{{ plan.transaction_fee_percent ?? 5 }}%</span>
-                <span class="plan-stat-label">Fee</span>
-              </div>
-            </div>
-            <ul class="plan-features-list">
-              <li v-for="(feat, j) in planFeaturesList(plan)" :key="j" class="plan-feature-item">
-                <span class="plan-feature-check">✓</span>
-                <span>{{ feat }}</span>
-              </li>
-            </ul>
-            <div v-if="!((plan.price_monthly ?? 0) === 0 || (plan.plan_type ?? '').toUpperCase() === 'FREE') && yearlySavingsPercent(plan) > 0" class="plan-yearly-badge">
-              Save {{ yearlySavingsPercent(plan) }}% yearly ({{ formattedYearlyPrice(plan) }}/yr)
-            </div>
-            <button
-              v-if="!isCurrentPlan(plan) && canUpgrade(plan)"
-              type="button"
-              class="btn-upgrade-plan"
-              :style="{ backgroundColor: planColor(plan.plan_type as string), color: '#fff' }"
-              @click="openSubscribe(plan)"
+        <div class="steps-container">
+          <div
+            v-for="(plan, i) in sortedPlans"
+            :key="i"
+            class="step-wrapper"
+            :class="{ 'step-premium': isPremiumPlan(plan) }"
+            :style="{ marginTop: (i * 24) + 'px' }"
+          >
+            <div
+              class="plan-card"
+              :class="{ 'plan-card-featured': isPremiumPlan(plan) }"
+              :style="{ borderColor: isCurrentPlan(plan) ? planColor(plan.plan_type as string) : (isPremiumPlan(plan) ? '#d97706' : '#e2e8f0') }"
             >
-              Upgrade to {{ plan.name ?? plan.plan_type }}
-            </button>
-            <p v-else-if="!isCurrentPlan(plan)" class="plan-higher">You have a higher plan</p>
+              <div v-if="isPremiumPlan(plan)" class="plan-recommended-badge">Most Popular</div>
+              <div class="plan-card-header" :style="{ background: planColor(plan.plan_type as string) + '15' }">
+                <div class="plan-card-header-left">
+                  <span class="plan-card-name" :style="{ color: planColor(plan.plan_type as string) }">
+                    {{ plan.name ?? plan.plan_type ?? 'Plan' }}
+                  </span>
+                  <span v-if="isCurrentPlan(plan)" class="plan-badge">CURRENT</span>
+                  <p class="plan-card-desc">
+                    {{ plan.description || `Perfect for ${(plan.plan_type ?? '').toLowerCase()} users` }}
+                  </p>
+                </div>
+                <div class="plan-card-price-wrap">
+                  <span class="plan-card-price" :style="{ color: planColor(plan.plan_type as string) }">
+                    {{ formattedMonthlyPrice(plan) }}
+                  </span>
+                  <span class="plan-card-period">/month</span>
+                </div>
+              </div>
+              <div class="plan-card-body">
+                <div class="plan-stats-row">
+                  <div class="plan-stat">
+                    <span class="plan-stat-icon">📅</span>
+                    <span class="plan-stat-value">{{ plan.max_events === -1 ? 'Unlimited' : (plan.max_events ?? 0) }}</span>
+                    <span class="plan-stat-label">Events</span>
+                  </div>
+                  <div class="plan-stat">
+                    <span class="plan-stat-icon">👥</span>
+                    <span class="plan-stat-value">{{ plan.max_participants_per_event ?? 0 }}</span>
+                    <span class="plan-stat-label">Participants</span>
+                  </div>
+                  <div class="plan-stat">
+                    <span class="plan-stat-icon">%</span>
+                    <span class="plan-stat-value">{{ plan.transaction_fee_percent ?? 5 }}%</span>
+                    <span class="plan-stat-label">Fee</span>
+                  </div>
+                </div>
+                <ul class="plan-features-list">
+                  <li v-for="(feat, j) in planFeaturesList(plan)" :key="j" class="plan-feature-item">
+                    <span class="plan-feature-check">✓</span>
+                    <span>{{ feat }}</span>
+                  </li>
+                </ul>
+                <div v-if="!((plan.price_monthly ?? 0) === 0 || (plan.plan_type ?? '').toUpperCase() === 'FREE') && yearlySavingsPercent(plan) > 0" class="plan-yearly-badge">
+                  Save {{ yearlySavingsPercent(plan) }}% yearly ({{ formattedYearlyPrice(plan) }}/yr)
+                </div>
+                <button
+                  v-if="!isCurrentPlan(plan) && canUpgrade(plan)"
+                  type="button"
+                  class="btn-upgrade-plan"
+                  :style="{ backgroundColor: planColor(plan.plan_type as string), color: '#fff' }"
+                  @click="openSubscribe(plan)"
+                >
+                  Upgrade to {{ plan.name ?? plan.plan_type }}
+                </button>
+                <p v-else-if="!isCurrentPlan(plan)" class="plan-higher">You have a higher plan</p>
+              </div>
+            </div>
           </div>
         </div>
       </template>
@@ -456,21 +487,37 @@ onMounted(load)
 </template>
 
 <style scoped>
-.subscriptions-page { min-height: 100vh; background: #f8fafc; }
-.subscriptions-main { max-width: 640px; margin: 0 auto; padding: 24px 16px; padding-top: 72px; }
+.subscriptions-page { min-height: 100vh; background: #fff; width: 100%; }
+.subscriptions-main { width: 100%; max-width: 100%; margin: 0 auto; padding: 24px 20px; padding-top: 72px; box-sizing: border-box; }
 .sub-header { margin-bottom: 24px; }
-.btn-back { background: none; border: none; color: #64748b; cursor: pointer; font-size: 14px; padding: 0; margin-bottom: 8px; }
-.btn-back:hover { color: #1e293b; }
 .sub-title { font-size: 24px; font-weight: 700; color: #1e293b; margin: 0; }
 .state { text-align: center; padding: 48px; color: #64748b; }
 .state-error { color: #dc2626; }
 .btn-retry { margin-top: 12px; padding: 8px 16px; font-size: 14px; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; }
 
+.plans-top-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: stretch;
+  margin-bottom: 24px;
+}
+
+.plans-top-row .current-plan-card {
+  flex: 1;
+  min-width: 280px;
+}
+
+.plans-top-row .value-card {
+  flex: 1;
+  min-width: 280px;
+}
+
 .current-plan-card {
   border-radius: 16px;
   border-width: 1px;
   border-style: solid;
-  margin-bottom: 16px;
+  margin-bottom: 0;
   overflow: hidden;
 }
 .current-plan-inner {
@@ -502,7 +549,7 @@ onMounted(load)
   border: 1px solid #fde68a;
   border-radius: 12px;
   padding: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 0;
 }
 .value-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
 .value-icon { font-size: 20px; }
@@ -527,15 +574,74 @@ onMounted(load)
 .fee-chip.first .fee-chip-amount { color: #475569; }
 
 .section-title { font-size: 22px; font-weight: 700; color: #1a1a2e; margin: 0 0 8px; }
-.section-subtitle { font-size: 14px; color: #64748b; margin: 0 0 20px; }
+.section-subtitle { font-size: 14px; color: #64748b; margin: 0 0 24px; }
+
+/* Staircase layout: plans as ascending steps, no numbers */
+.steps-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
+  align-items: flex-start;
+  padding-bottom: 24px;
+}
+
+.step-wrapper {
+  flex: 1;
+  min-width: 260px;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.step-wrapper.step-premium {
+  min-width: 280px;
+  max-width: 360px;
+}
+
+.plan-recommended-badge {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #d97706, #b45309);
+  border-radius: 20px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.4);
+  z-index: 2;
+}
 
 .plan-card {
+  position: relative;
+  width: 100%;
   background: #fff;
-  border-radius: 16px;
+  border-radius: 16px 16px 4px 4px;
   border: 2px solid #e2e8f0;
-  margin-bottom: 16px;
-  overflow: hidden;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+  margin-bottom: 0;
+  overflow: visible;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 6px 0 -2px #cbd5e1;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+
+.plan-card-featured {
+  border-width: 2px;
+  border-color: #d97706;
+  box-shadow: 0 10px 25px -5px rgba(217, 119, 6, 0.2), 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+  transform: scale(1.05);
+  padding-top: 8px;
+}
+
+@media (max-width: 900px) {
+  .plan-card-featured { transform: scale(1); }
+  .step-wrapper { max-width: none; }
+  .step-wrapper.step-premium { max-width: none; }
+  .step-wrapper[style*="margin-top"] { margin-top: 16px !important; }
 }
 .plan-card-header {
   padding: 20px;

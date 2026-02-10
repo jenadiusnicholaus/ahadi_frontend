@@ -123,7 +123,7 @@ onMounted(load)
 </template>
 
 <style scoped>
-.transactions-page { min-height: 100vh; background: #f8fafc; }
+.transactions-page { min-height: 100vh; background: #fff; }
 .transactions-main { max-width: 560px; margin: 0 auto; padding: 24px 16px; padding-top: 72px; }
 .transactions-header { margin-bottom: 24px; }
 .btn-back { background: none; border: none; color: #64748b; cursor: pointer; font-size: 14px; padding: 0; margin-bottom: 8px; }

@@ -18,14 +18,14 @@ export interface InboxMessage {
   recipient: number
   recipient_id: number
   recipient_name: string
-  event: number
-  event_title: string
+  event: number | null
+  event_title: string | null
   message_type: string
   message_type_display: string
   title: string
   content: string
-  card_image_url: string
-  card_pdf_url: string
+  card_image_url: string | null
+  card_pdf_url: string | null
   media_url: string
   is_read: boolean
   read_at: string | null
@@ -110,9 +110,34 @@ export function fetchInboxUnreadCount(): Promise<InboxUnreadCountResponse> {
   return getWithAuth<InboxUnreadCountResponse>(inboxPath('unread_count/'))
 }
 
+/** One conversation from GET inbox/conversations/ (shape may vary by backend). */
+export interface InboxConversationItem {
+  /** Partner (other party) user id. */
+  partner_id?: number
+  partner_name?: string
+  partner_email?: string
+  other_user_id?: number
+  other_party_id?: number
+  other_user_name?: string
+  other_party_name?: string
+  last_message?: string
+  last_message_time?: string
+  last_message_at?: string
+  last_created_at?: string
+  unread_count?: number
+  messages?: InboxMessage[]
+  [key: string]: unknown
+}
+
+/** GET conversations may return { results: InboxConversationItem[] } or array. */
+export interface InboxConversationsResponse {
+  results?: InboxConversationItem[]
+  [key: string]: unknown
+}
+
 /** GET /api/v1/inbox/conversations/ – Get all conversations for current user (messages grouped by conversation partner). */
-export function fetchInboxConversations(): Promise<unknown> {
-  return getWithAuth<unknown>(inboxPath('conversations/'))
+export function fetchInboxConversations(): Promise<InboxConversationsResponse | InboxConversationItem[]> {
+  return getWithAuth<InboxConversationsResponse | InboxConversationItem[]>(inboxPath('conversations/'))
 }
 
 /** POST /api/v1/inbox/mark_all_read/ – Mark all messages as read. */
