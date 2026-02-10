@@ -223,7 +223,7 @@ const formattedEndDate = computed(() => {
   })
 })
 
-/** Live countdown to start_date (updates every second) */
+/** Live countdown for contributions (updates every second) */
 const now = ref(Date.now())
 let countdownTimer: ReturnType<typeof setInterval> | null = null
 onMounted(() => {
@@ -235,16 +235,76 @@ onBeforeUnmount(() => {
   if (countdownTimer) clearInterval(countdownTimer)
 })
 
-const countdown = computed(() => {
+type CountdownPhase = 'before' | 'during' | 'ended' | 'started_no_end'
+
+const contributionEventTypeLabel = computed(() => {
+  // E.g. "Wedding", "Memorial", etc. Fallback is "Event".
+  return event.value?.event_type_name || 'Event'
+})
+
+/**
+ * Countdown that understands three phases:
+ * - before: contributions have not started yet (count down to start date)
+ * - during: contributions are open (count down to end date)
+ * - ended: contributions are closed (no ticking numbers, just messaging)
+ * - started_no_end: started but no end date available (treat as "started")
+ */
+const contributionCountdown = computed(() => {
   const start = startDate.value
-  if (!start) return null
-  const t = start.getTime() - now.value
-  if (t <= 0) return { past: true, days: 0, hours: 0, minutes: 0, seconds: 0 }
-  const days = Math.floor(t / (24 * 60 * 60 * 1000))
-  const h = Math.floor((t % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000))
-  const m = Math.floor((t % (60 * 60 * 1000)) / (60 * 1000))
-  const s = Math.floor((t % (60 * 1000)) / 1000)
-  return { past: false, days, hours: h, minutes: m, seconds: s }
+  const end = endDate.value
+  const nowMs = now.value
+
+  if (!start && !end) return null
+
+  let phase: CountdownPhase
+  let target: Date | null = null
+
+  if (start && nowMs < start.getTime()) {
+    phase = 'before'
+    target = start
+  } else if (end && nowMs <= end.getTime()) {
+    phase = 'during'
+    target = end
+  } else if (end && nowMs > end.getTime()) {
+    phase = 'ended'
+    target = end
+  } else if (start) {
+    phase = 'started_no_end'
+    target = start
+  } else {
+    phase = 'ended'
+    target = end
+  }
+
+  if (phase === 'ended') {
+    return {
+      phase,
+      ended: true as const,
+      days: 0,
+      hours: 0,
+      minutes: 0,
+      seconds: 0,
+      targetDate: target,
+    }
+  }
+
+  if (!target) return null
+
+  const diff = Math.max(0, target.getTime() - nowMs)
+  const days = Math.floor(diff / (24 * 60 * 60 * 1000))
+  const h = Math.floor((diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000))
+  const m = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000))
+  const s = Math.floor((diff % (60 * 1000)) / 1000)
+
+  return {
+    phase,
+    ended: false as const,
+    days,
+    hours: h,
+    minutes: m,
+    seconds: s,
+    targetDate: target,
+  }
 })
 
 const participantCount = computed(() => {
@@ -426,34 +486,62 @@ const shareCardTagline = computed(() => {
           <!-- Left Column: Image and Story -->
           <div class="event-left">
             <!-- Countdown at top (frosted boxes, orange seconds) -->
-            <div v-if="startDate && countdown" class="countdown-card countdown-card-top">
-              <div class="countdown-label">{{ countdown.past ? 'Event started' : 'Event starts in' }}</div>
-              <template v-if="!countdown.past">
+            <div v-if="contributionCountdown" class="countdown-card countdown-card-top">
+              <div class="countdown-label">
+                <template v-if="contributionCountdown.phase === 'before'">
+                  {{ contributionEventTypeLabel }} contributions start in
+                </template>
+                <template v-else-if="contributionCountdown.phase === 'during'">
+                  {{ contributionEventTypeLabel }} contributions end in
+                </template>
+                <template v-else>
+                  Event ended
+                </template>
+              </div>
+
+              <template v-if="contributionCountdown.phase === 'before' || contributionCountdown.phase === 'during'">
                 <div class="countdown-grid">
                   <div class="countdown-box">
-                    <span class="countdown-num">{{ countdown.days }}</span>
+                    <span class="countdown-num">{{ contributionCountdown.days }}</span>
                     <span class="countdown-unit-label">Days</span>
                   </div>
                   <div class="countdown-box">
-                    <span class="countdown-num">{{ String(countdown.hours).padStart(2, '0') }}</span>
+                    <span class="countdown-num">{{ String(contributionCountdown.hours).padStart(2, '0') }}</span>
                     <span class="countdown-unit-label">Hours</span>
                   </div>
                   <div class="countdown-box">
-                    <span class="countdown-num">{{ String(countdown.minutes).padStart(2, '0') }}</span>
+                    <span class="countdown-num">{{ String(contributionCountdown.minutes).padStart(2, '0') }}</span>
                     <span class="countdown-unit-label">Minutes</span>
                   </div>
                   <div class="countdown-box">
-                    <span class="countdown-num countdown-num-seconds">{{ String(countdown.seconds).padStart(2, '0') }}</span>
+                    <span class="countdown-num countdown-num-seconds">
+                      {{ String(contributionCountdown.seconds).padStart(2, '0') }}
+                    </span>
                     <span class="countdown-unit-label">Seconds</span>
                   </div>
                 </div>
                 <p class="countdown-subtitle">
                   <span class="countdown-subtitle-icon" aria-hidden="true">🕐</span>
-                  Time remaining until event starts
+                  <template v-if="contributionCountdown.phase === 'before'">
+                    Time remaining until contributions start
+                  </template>
+                  <template v-else>
+                    Time remaining until contributions close
+                  </template>
                 </p>
-                <p class="countdown-date">{{ formattedStartDate }}</p>
+                <p class="countdown-date">
+                  {{ contributionCountdown.phase === 'before' ? formattedStartDate : formattedEndDate }}
+                </p>
               </template>
-              <p v-else class="countdown-date">{{ formattedStartDate }}</p>
+              <template v-else>
+                <p class="countdown-subtitle">
+                  <span class="countdown-subtitle-icon" aria-hidden="true">🕐</span>
+                  {{ contributionEventTypeLabel }} contributions ended on
+                </p>
+                <p class="countdown-date">
+                  {{ formattedEndDate || formattedStartDate }}
+                </p>
+              </template>
             </div>
 
             <h1 class="event-title">
