@@ -1,55 +1,14 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { getAccessToken } from '@/api/token'
-import { HERO_VIDEO_URL } from '@/config/app'
-
-const useCssAnimation = false // Disabled - using real video
 
 const props = defineProps<{
   onJoinWithCode?: () => void
 }>()
 
-/** Resolved URL for the hero video. Local paths (e.g. /videos/herovideo.mp4) are used as-is so the request shows in Network. */
-const heroVideoSrc = computed(() => {
-  const url = (HERO_VIDEO_URL || '').trim()
-  if (!url) return '/videos/herovideo.mp4'
-  if (url.startsWith('http')) return url
-  return url.startsWith('/') ? url : `/${url}`
-})
-
 const router = useRouter()
 const isLoaded = ref(false)
-const useVideo = ref(true)
-const videoError = ref(false)
-const videoLoaded = ref(false)
-const mp4RetryCount = ref(0)
-const heroVideoKey = ref(0)
-
-function onVideoError(e: Event) {
-  const target = e.target as HTMLVideoElement | null
-  const err = target?.error
-  const code = err?.code
-  const msg = err?.message || ''
-  console.warn('Hero video error:', { code, message: msg, url: HERO_VIDEO_URL })
-
-  if (mp4RetryCount.value < 1) {
-    mp4RetryCount.value += 1
-    heroVideoKey.value += 1
-    return
-  }
-  videoError.value = true
-  useVideo.value = false
-}
-
-function onVideoLoaded(e: Event) {
-  videoLoaded.value = true
-  const el = e.target as HTMLVideoElement | null
-  if (el) {
-    el.play().catch(() => {})
-  }
-  console.log('Hero video loaded successfully')
-}
 
 function onJoinWithCode() {
   props.onJoinWithCode?.()
@@ -72,7 +31,6 @@ function onCreateEvent() {
 }
 
 onMounted(() => {
-  console.log('Hero video URL:', heroVideoSrc.value)
   setTimeout(() => {
     isLoaded.value = true
   }, 100)
@@ -81,23 +39,8 @@ onMounted(() => {
 
 <template>
   <section id="hero" class="hero">
-    <!-- Local MP4 only (public/videos/) -->
-    <video
-      v-if="useVideo"
-      :key="heroVideoKey"
-      class="hero-video hero-video-mp4"
-      :src="heroVideoSrc"
-      autoplay
-      muted
-      loop
-      playsinline
-      preload="auto"
-      @error="onVideoError"
-      @loadeddata="onVideoLoaded"
-      @canplay="onVideoLoaded"
-    />
-    <!-- No image fallback: solid background when video off or failed -->
-    <div v-else class="hero-bg-solid" aria-hidden="true" />
+    <!-- Solid gradient background (no image) -->
+    <div class="hero-bg-solid" aria-hidden="true" />
     <div class="hero-container" :class="{ 'is-loaded': isLoaded }">
       
       <!-- Main Content Grid -->
@@ -250,11 +193,10 @@ onMounted(() => {
 @media (max-width: 967px) {
   .hero {
     align-items: center;
-    padding: 56px 20px 40px;
-    padding-left: max(20px, env(safe-area-inset-left));
-    padding-right: max(20px, env(safe-area-inset-right));
+    padding: 56px 28px 40px;
+    padding-left: max(28px, env(safe-area-inset-left));
+    padding-right: max(28px, env(safe-area-inset-right));
     padding-bottom: max(40px, env(safe-area-inset-bottom));
-    /* Extra top padding so fixed mobile navbar doesn't cover "Event Contribution Platform" */
     padding-top: max(88px, calc(72px + env(safe-area-inset-top)));
   }
 }
@@ -273,8 +215,8 @@ onMounted(() => {
   }
 }
 
-/* Video or solid background layer */
-.hero-video,
+/* Image or solid background layer */
+.hero-background-image,
 .hero-bg-solid {
   position: absolute;
   inset: 0;
@@ -283,12 +225,15 @@ onMounted(() => {
   z-index: 0;
 }
 
-.hero-video {
+.hero-background-image {
   object-fit: cover;
+  object-position: center;
+  filter: brightness(1.05) contrast(1.1) saturate(1.1);
 }
 
 .hero-bg-solid {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f1419 100%);
+  background-attachment: fixed;
 }
 
 /* CSS Animated Background - smooth zoom and pan effect */
@@ -343,62 +288,29 @@ onMounted(() => {
   }
 }
 
-.hero-video {
+/* Ensure image is visible */
+.hero-background-image {
+  display: block;
   opacity: 1;
   pointer-events: none;
-  filter: brightness(1.05) contrast(1.1) saturate(1.1);
 }
 
-.hero-video-mp4 {
-  width: 100%;
-  height: 100%;
-  min-width: 100%;
-  min-height: 100%;
-  object-fit: cover;
-}
-
-/* Ensure video is visible and playing */
-.hero-video[src] {
-  display: block;
-}
-
-/* Enhanced overlay: selective gradient for text readability - lighter overlay where text is */
+/* Subtle overlay for depth - removed heavy overlays for better text visibility */
 .hero::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    105deg,
-    rgba(255, 255, 255, 0.7) 0%,
-    rgba(255, 255, 255, 0.5) 20%,
-    rgba(255, 255, 255, 0.3) 40%,
-    rgba(255, 255, 255, 0.15) 60%,
-    rgba(0, 0, 0, 0.1) 85%,
-    rgba(0, 0, 0, 0.2) 100%
+  background: radial-gradient(
+    ellipse 60% 100% at 30% 50%,
+    rgba(0, 0, 0, 0.2) 0%,
+    transparent 60%
   );
   z-index: 1;
   pointer-events: none;
-  mix-blend-mode: overlay;
 }
 
-/* Additional targeted overlay for text areas */
 .hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    ellipse 50% 80% at 25% 50%,
-    rgba(255, 255, 255, 0.4) 0%,
-    rgba(255, 255, 255, 0.2) 30%,
-    transparent 60%
-  ),
-  radial-gradient(
-    ellipse 40% 60% at 75% 50%,
-    rgba(0, 0, 0, 0.2) 0%,
-    transparent 50%
-  );
-  z-index: 1;
-  pointer-events: none;
+  display: none;
 }
 
 .hero .hero-container {
@@ -442,39 +354,139 @@ onMounted(() => {
   gap: 24px;
 }
 
-/* Mobile: 1) Hero text, 2) Platform Metrics, 3) Two buttons at bottom */
+/* ============================================
+   MOBILE LAYOUT (≤967px)
+   ============================================ */
 @media (max-width: 967px) {
   .hero-grid {
-    min-height: calc(100vh - 52px - 88px);
-    min-height: calc(100dvh - 52px - 88px);
+    min-height: auto;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    align-items: stretch;
-    gap: 28px;
+    align-items: center;
+    gap: 40px;
     width: 100%;
-    max-width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
     padding-bottom: 32px;
   }
+
+  /* --- Text block: centered --- */
   .hero-main {
     order: 1;
     width: 100%;
-    max-width: 100%;
-    text-align: left;
+    text-align: center;
   }
+
+  .hero-subtext {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* --- Metrics sidebar --- */
   .hero-sidebar {
     display: flex;
     order: 2;
     width: 100%;
-    max-width: 100%;
   }
+
+  /* --- Buttons --- */
   .hero-actions {
     order: 3;
-    justify-content: flex-start;
-    margin-top: auto;
-    margin-bottom: 0;
+    justify-content: center;
     width: 100%;
-    max-width: 100%;
+  }
+
+  /* Hide tree connectors on mobile */
+  .connector {
+    display: none;
+  }
+
+  /* Title: centered, subtle */
+  .flowchart-title {
+    text-align: center;
+    margin-bottom: 20px;
+    padding-bottom: 0;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: rgba(255, 255, 255, 0.5);
+  }
+  .flowchart-title::after {
+    display: none;
+  }
+
+  /* Stack all levels vertically */
+  .metrics-flowchart {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .flowchart-level {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 0 !important;
+  }
+
+  /* All cards: full-width, consistent padding */
+  .metric-box,
+  .metric-primary,
+  .metric-small {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    flex: none !important;
+    margin: 0;
+    border-radius: 14px;
+    padding: 20px 24px;
+    box-sizing: border-box;
+  }
+
+  .level-1,
+  .level-2,
+  .level-3 {
+    gap: 12px;
+    margin: 0 !important;
+  }
+
+  /* 2-column grid for bottom 4 metrics */
+  .level-3 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    flex-direction: unset !important;
+  }
+
+  .level-3 .metric-box {
+    padding: 16px 16px;
+  }
+
+  .metric-label {
+    font-size: 10px;
+  }
+  .metric-value {
+    font-size: 22px;
+  }
+  .metric-primary .metric-value {
+    font-size: 28px;
+  }
+  .metric-small .metric-label {
+    font-size: 9px;
+  }
+  .metric-small .metric-value {
+    font-size: 18px;
+  }
+}
+
+/* ============================================
+   SMALL PHONE (≤480px)
+   ============================================ */
+@media (max-width: 480px) {
+  .hero {
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
   }
 }
 
@@ -544,15 +556,13 @@ onMounted(() => {
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--color-text-muted);
+  color: #ffffff;
   margin-bottom: 10px;
   text-shadow: 
-    0 1px 2px rgba(255, 255, 255, 0.95),
-    0 0 8px rgba(255, 255, 255, 0.7),
-    0 2px 4px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+    0 2px 4px rgba(0, 0, 0, 0.5),
+    0 0 8px rgba(0, 0, 0, 0.3);
   display: block;
+  opacity: 0.9;
 }
 
 .hero-heading {
@@ -561,15 +571,12 @@ onMounted(() => {
   font-weight: 400;
   line-height: 1.08;
   letter-spacing: -0.02em;
-  color: var(--color-text);
+  color: #ffffff;
   margin: 0 0 16px 0;
   text-shadow: 
-    0 2px 4px rgba(255, 255, 255, 0.95),
-    0 0 12px rgba(255, 255, 255, 0.8),
-    0 4px 8px rgba(0, 0, 0, 0.15),
-    0 0 20px rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+    0 3px 8px rgba(0, 0, 0, 0.6),
+    0 0 20px rgba(0, 0, 0, 0.4),
+    0 6px 12px rgba(0, 0, 0, 0.5);
   overflow-wrap: break-word;
 }
 
@@ -589,14 +596,9 @@ onMounted(() => {
 }
 
 @media (max-width: 480px) {
-  .hero {
-    padding-left: max(16px, env(safe-area-inset-left));
-    padding-right: max(16px, env(safe-area-inset-right));
-  }
-
   .hero-heading {
-    font-size: 24px;
-    line-height: 1.2;
+    font-size: 28px;
+    line-height: 1.12;
   }
   
   .hero-label {
@@ -605,34 +607,42 @@ onMounted(() => {
   }
   
   .hero-subtext {
-    font-size: 14px;
-    line-height: 1.5;
+    font-size: 15px;
+    line-height: 1.55;
     margin-bottom: 12px;
   }
   
   .hero-actions {
     flex-direction: column;
     width: 100%;
-    max-width: 100%;
     gap: 12px;
   }
   
   .btn {
     width: 100%;
-    max-width: 100%;
     justify-content: center;
     box-sizing: border-box;
+  }
+  
+  .metric-box,
+  .metric-primary,
+  .metric-small {
+    padding: 18px 20px;
+  }
+  
+  .level-3 .metric-box {
+    padding: 14px 12px;
   }
 }
 
 .hero-heading-accent {
   position: relative;
   display: inline-block;
-  color: var(--color-accent);
+  color: #ffd700;
   text-shadow: 
-    0 2px 4px rgba(255, 255, 255, 0.95),
-    0 0 12px rgba(255, 255, 255, 0.8),
-    0 4px 8px rgba(0, 0, 0, 0.15);
+    0 3px 8px rgba(0, 0, 0, 0.7),
+    0 0 16px rgba(255, 215, 0, 0.3),
+    0 6px 12px rgba(0, 0, 0, 0.6);
 }
 
 .hero-heading-accent::after {
@@ -642,9 +652,9 @@ onMounted(() => {
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, var(--color-accent) 0%, rgba(26, 26, 46, 0.6) 100%);
+  background: linear-gradient(90deg, #ffd700 0%, rgba(255, 215, 0, 0.3) 100%);
   border-radius: 2px;
-  box-shadow: 0 2px 4px rgba(255, 255, 255, 0.5);
+  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
 }
 
 @media (max-width: 640px) {
@@ -658,22 +668,28 @@ onMounted(() => {
 .hero-subtext {
   font-size: 17px;
   line-height: 1.7;
-  color: var(--color-text-muted);
+  color: #f0f0f0;
   max-width: 520px;
   margin: 0 0 24px 0;
   text-shadow: 
-    0 1px 3px rgba(255, 255, 255, 0.9),
-    0 0 8px rgba(255, 255, 255, 0.7),
-    0 2px 4px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+    0 2px 6px rgba(0, 0, 0, 0.6),
+    0 0 12px rgba(0, 0, 0, 0.4),
+    0 3px 8px rgba(0, 0, 0, 0.5);
   overflow-wrap: break-word;
+  font-weight: 400;
 }
 
 @media (max-width: 967px) {
   .hero-subtext {
     font-size: 16px;
     max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-subtext {
+    font-size: 15px;
+    line-height: 1.6;
   }
 }
 
@@ -850,31 +866,46 @@ onMounted(() => {
 }
 
 .metrics-flowchart {
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 28px 22px;
-  background: #fff;
+  border: none;
+  padding: 0;
+  background: transparent;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+  border-radius: 0;
+  box-shadow: none;
   position: relative;
+  overflow: visible;
 }
 
 @media (max-width: 967px) {
   .metrics-flowchart {
-    padding: 24px 18px;
-    border-radius: 16px;
+    padding: 0;
+    border-radius: 0;
   }
 }
 
 .flowchart-title {
   font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  margin-bottom: 22px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: 32px;
   text-align: center;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
+  position: relative;
+  padding-bottom: 16px;
+}
+
+.flowchart-title::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.6), transparent);
+  border-radius: 2px;
 }
 
 /* Flowchart Levels */
@@ -883,6 +914,7 @@ onMounted(() => {
   justify-content: center;
   gap: 12px;
   position: relative;
+  flex-wrap: wrap;
 }
 
 .level-1 {
@@ -899,38 +931,67 @@ onMounted(() => {
 
 /* Metric Boxes */
 .metric-box {
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 20px 24px;
   text-align: center;
-  min-width: 130px;
-  border-radius: 14px;
-  transition: all 0.25s ease;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1), 0 1px 0 rgba(255, 255, 255, 0.6) inset;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  min-width: 140px;
+  border-radius: 16px;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 8px 24px rgba(0, 0, 0, 0.25),
+    0 2px 8px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-box::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
 }
 
 .metric-box:hover {
-  border-color: rgba(26, 26, 46, 0.2);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-4px);
+  box-shadow: 
+    0 12px 32px rgba(0, 0, 0, 0.35),
+    0 4px 12px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .metric-primary {
-  background: var(--color-metric-primary);
-  border-color: transparent;
-  min-width: 180px;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 215, 0, 0.1) 100%);
+  border-color: rgba(255, 215, 0, 0.4);
+  min-width: 220px;
   color: #fff;
-  box-shadow: 0 6px 20px rgba(26, 26, 46, 0.2);
+  box-shadow: 
+    0 12px 32px rgba(255, 215, 0, 0.2),
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.metric-primary::before {
+  background: linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.4), transparent);
 }
 
 .metric-primary .metric-label {
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 700;
+  font-size: 12px;
 }
 
 .metric-primary .metric-value {
-  color: #fff;
+  color: #ffffff;
+  font-weight: 800;
 }
 
 .metric-primary:hover {
@@ -944,31 +1005,42 @@ onMounted(() => {
 
 .metric-label {
   font-size: 11px;
-  font-weight: 600;
-  color: var(--color-text-muted);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.75);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 8px;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+  display: block;
+  line-height: 1.4;
 }
 
 .metric-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--color-text);
-  letter-spacing: -0.02em;
+  font-size: 26px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.04em;
+  display: block;
+  line-height: 1.1;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .metric-primary .metric-value {
-  font-size: 24px;
+  font-size: 32px;
+  color: #ffd700;
+  text-shadow: 0 2px 12px rgba(255, 215, 0, 0.4);
 }
 
 .metric-small .metric-label {
   font-size: 10px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .metric-small .metric-value {
-  font-size: 16px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #ffffff;
 }
 
 /* Connectors – visible lines linking metrics */
@@ -976,7 +1048,10 @@ onMounted(() => {
   width: 100%;
   height: 40px;
   display: block;
-  color: rgba(0, 0, 0, 0.28);
+  color: rgba(255, 255, 255, 0.25);
+  stroke-width: 2;
+  opacity: 0.6;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
 }
 
 .connector-1-2 {
@@ -1005,8 +1080,20 @@ onMounted(() => {
 
 .level-2 {
   position: relative;
-  margin-bottom: 32px;
+  margin-bottom: 36px;
+  gap: 16px;
 }
+
+.level-1 {
+  margin-bottom: 8px;
+}
+
+.level-3 {
+  gap: 14px;
+  margin-top: 8px;
+}
+
+/* level-2 mobile handled in main mobile block above */
 
 /* Features List */
 .features-list {
@@ -1032,46 +1119,10 @@ onMounted(() => {
   opacity: 0.6;
 }
 
-/* Responsive adjustments */
-@media (max-width: 640px) {
-  .metrics-flowchart {
-    padding: 24px 16px;
-  }
-
-  .metric-box {
-    min-width: 100px;
-    padding: 12px 16px;
-  }
-
-  .metric-primary {
-    min-width: 140px;
-  }
-
-  .metric-small {
-    min-width: 80px;
-    padding: 10px 12px;
-  }
-
-  .metric-value {
-    font-size: 16px;
-  }
-
-  .metric-primary .metric-value {
-    font-size: 20px;
-  }
-
-  .metric-small .metric-value {
-    font-size: 14px;
-  }
-
+/* Very small phones: single column for bottom metrics */
+@media (max-width: 360px) {
   .level-3 {
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-
-  .level-3 .metric-box {
-    flex: 1 1 calc(50% - 6px);
-    min-width: 0;
+    grid-template-columns: 1fr !important;
   }
 }
 

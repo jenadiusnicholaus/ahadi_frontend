@@ -20,10 +20,10 @@ export const CONTACT_INFO = {
 } as const
 
 /**
- * Hero section: local background video only (no YouTube, no fallback image).
- * Set VITE_HERO_VIDEO_URL in .env to path under public/ (e.g. /videos/herovideo.mp4).
- * File lives in public/videos/herovideo.mp4. Restart dev server after changing .env.
+ * Hero section: background image.
+ * Set VITE_HERO_IMAGE_URL in .env to path under public/ (e.g. /images/hero-background.jpg).
+ * Restart dev server after changing .env.
  */
-const _heroVideoUrl = import.meta.env.VITE_HERO_VIDEO_URL as string | undefined
-export const HERO_VIDEO_URL: string =
-  (_heroVideoUrl?.trim()) || '/videos/herovideo.mp4'
+const _heroImageUrl = import.meta.env.VITE_HERO_IMAGE_URL as string | undefined
+export const HERO_IMAGE_URL: string =
+  (_heroImageUrl?.trim()) || '/images/static_images/homepage.png'

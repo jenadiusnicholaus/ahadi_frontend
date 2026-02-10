@@ -539,18 +539,18 @@ function onSearchSubmit() {
   left: 0;
   right: 0;
   z-index: 100;
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(26, 26, 46, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   transition: background 0.25s ease, border-color 0.25s ease, backdrop-filter 0.25s ease;
 }
 
 .navbar.navbar-scrolled {
-  background: #fff;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom-color: #e5e7eb;
+  background: rgba(26, 26, 46, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom-color: rgba(255, 255, 255, 0.1);
 }
 
 /* ----- Mobile header (visible only on small screens) ----- */
@@ -560,9 +560,9 @@ function onSearchSubmit() {
   justify-content: space-between;
   padding: 12px 14px;
   padding-top: max(12px, env(safe-area-inset-top));
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(26, 26, 46, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   min-height: 52px;
   gap: 10px;
   transition: background 0.25s ease, backdrop-filter 0.25s ease;
@@ -570,9 +570,9 @@ function onSearchSubmit() {
 }
 
 .navbar.navbar-scrolled .navbar-mobile {
-  background: #fff;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(26, 26, 46, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 @media (max-width: 768px) {
@@ -586,22 +586,22 @@ function onSearchSubmit() {
 
 /* Mobile: dark text when navbar has solid background (scrolled) */
 .navbar.navbar-scrolled .mobile-brand-name {
-  color: #1a1a2e;
+  color: #ffffff;
   text-shadow: none;
 }
 
 .navbar.navbar-scrolled .mobile-brand-tagline {
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.6);
   text-shadow: none;
 }
 
 .navbar.navbar-scrolled .hamburger {
-  color: #1a1a2e;
-  border-color: #1a1a2e;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .navbar.navbar-scrolled .hamburger:hover {
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .mobile-logo-wrap {
@@ -635,7 +635,7 @@ function onSearchSubmit() {
 .mobile-brand-name {
   font-size: 18px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: #ffffff;
   letter-spacing: -0.5px;
   line-height: 1.2;
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
@@ -644,7 +644,7 @@ function onSearchSubmit() {
 .mobile-brand-tagline {
   font-size: 11px;
   font-weight: 400;
-  color: #52525b;
+  color: rgba(255, 255, 255, 0.6);
   line-height: 1.3;
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
@@ -660,18 +660,18 @@ function onSearchSubmit() {
   min-width: 40px;
   min-height: 40px;
   padding: 0;
-  background: rgba(255, 255, 255, 0.2);
-  border: 2px solid #1a1a2e;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 8px;
   cursor: pointer;
-  color: #1a1a2e;
+  color: #ffffff;
   flex-shrink: 0;
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .hamburger:hover {
-  background: rgba(255, 255, 255, 0.4);
-  border-color: #0f0f14;
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 .hamburger-line {
@@ -1165,9 +1165,9 @@ body:has(.mobile-drawer-overlay[style*="display: flex"]) {
 .logo-text {
   font-size: 18px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: #ffffff;
   letter-spacing: -0.5px;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .spacer {
@@ -1186,7 +1186,7 @@ body:has(.mobile-drawer-overlay[style*="display: flex"]) {
   padding: 8px 12px;
   font-size: 14px;
   font-weight: 500;
-  color: #374151;
+  color: rgba(255, 255, 255, 0.85);
   cursor: pointer;
   border-radius: 8px;
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
@@ -1194,8 +1194,8 @@ body:has(.mobile-drawer-overlay[style*="display: flex"]) {
 }
 
 .nav-link:hover {
-  color: #1a1a2e;
-  background: rgba(255, 255, 255, 0.5);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .nav-gap {
@@ -1258,12 +1258,12 @@ body:has(.mobile-drawer-overlay[style*="display: flex"]) {
   border-radius: 10px;
   font-size: 14px;
   font-weight: 400;
-  color: #9ca3af;
+  color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
 }
 
 .search-btn:hover {
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .auth-actions {
@@ -1276,7 +1276,7 @@ body:has(.mobile-drawer-overlay[style*="display: flex"]) {
   padding: 10px 18px;
   font-size: 14px;
   font-weight: 400;
-  color: #374151;
+  color: rgba(255, 255, 255, 0.85);
   background: none;
   border: none;
   cursor: pointer;
@@ -1284,15 +1284,15 @@ body:has(.mobile-drawer-overlay[style*="display: flex"]) {
 }
 
 .btn-log-in:hover {
-  color: #1a1a2e;
+  color: #ffffff;
 }
 
 .btn-sign-up {
   padding: 10px 20px;
   font-size: 14px;
   font-weight: 700;
-  color: #fff;
-  background: #1a1a2e;
+  color: #1a1a2e;
+  background: #ffffff;
   border: none;
   border-radius: 9999px;
   cursor: pointer;
@@ -1304,15 +1304,15 @@ body:has(.mobile-drawer-overlay[style*="display: flex"]) {
 }
 
 .btn-sign-up:hover {
-  background: #2d2d3a;
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .btn-my-account {
   padding: 10px 20px;
   font-size: 14px;
   font-weight: 600;
-  color: #fff;
-  background: #1a1a2e;
+  color: #1a1a2e;
+  background: #ffffff;
   border: none;
   border-radius: 9999px;
   cursor: pointer;
@@ -1323,7 +1323,7 @@ body:has(.mobile-drawer-overlay[style*="display: flex"]) {
 }
 
 .btn-my-account:hover {
-  background: #2d2d3a;
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .mobile-auth .btn-my-account {
@@ -1347,7 +1347,7 @@ body:has(.mobile-drawer-overlay[style*="display: flex"]) {
   align-items: center;
   gap: 6px;
   padding: 8px;
-  background: #f3f4f6;
+  background: rgba(255, 255, 255, 0.1);
   border: none;
   border-radius: 12px;
   cursor: pointer;
@@ -1355,7 +1355,7 @@ body:has(.mobile-drawer-overlay[style*="display: flex"]) {
 }
 
 .btn-account-trigger:hover {
-  background: #e5e7eb;
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .account-avatar {
@@ -1373,7 +1373,7 @@ body:has(.mobile-drawer-overlay[style*="display: flex"]) {
 }
 
 .account-chevron {
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.6);
   flex-shrink: 0;
 }
 
