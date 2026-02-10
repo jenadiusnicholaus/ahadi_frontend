@@ -103,15 +103,29 @@ async function confirmRemove(p: Participant) {
 function goBack() {
   router.push({ name: 'event-public', params: { id: String(eventId.value) } })
 }
+
+/** Navigate to Messages (Inbox) and open the DM conversation with this participant (starts new convo if none yet). */
+function openConversation(p: Participant) {
+  const userId = p.user
+  if (!userId) return
+  const name = (p.name || 'Unknown').trim() || 'Unknown'
+  router.push({ name: 'messages', query: { open: String(userId), name } })
+}
 </script>
 
 <template>
   <div class="participants-page">
     <WebNavbar />
     <main class="participants-main">
-      <button type="button" class="back-link" @click="goBack">
-        <span class="back-icon">←</span> Back
-      </button>
+      <nav v-if="event" class="participants-breadcrumbs" aria-label="Breadcrumb">
+        <button type="button" class="breadcrumb-link" @click="router.push({ name: 'home' })">Home</button>
+        <span class="breadcrumb-sep">/</span>
+        <button type="button" class="breadcrumb-link" @click="router.push({ name: 'events' })">Events</button>
+        <span class="breadcrumb-sep">/</span>
+        <button type="button" class="breadcrumb-link" @click="goBack">{{ event.title }}</button>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">Participants</span>
+      </nav>
 
       <template v-if="event">
         <header class="page-header">
@@ -165,7 +179,15 @@ function goBack() {
               <span class="amount-badge">TZS {{ formatAmount(p.total_contributions) }}</span>
             </div>
             <div class="actions">
-              <button type="button" class="btn-icon" disabled title="Edit – coming soon">✏️</button>
+              <button
+                type="button"
+                class="btn-icon btn-message"
+                title="Message"
+                aria-label="Open conversation"
+                @click="openConversation(p)"
+              >
+                💬
+              </button>
               <button
                 type="button"
                 class="btn-icon btn-remove"
@@ -183,10 +205,32 @@ function goBack() {
 </template>
 
 <style scoped>
-.participants-page { min-height: 100vh; background: #f8fafc; }
-.participants-main { max-width: 720px; margin: 0 auto; padding: 24px 20px 48px; padding-top: 72px; }
-.back-link { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 20px; padding: 8px 0; font-size: 14px; color: #6b7280; background: none; border: none; cursor: pointer; }
-.back-link:hover { color: #1a283b; }
+.participants-page { min-height: 100vh; background: #fff; }
+.participants-main { max-width: 720px; margin: 0 auto; padding: 96px 24px 48px; }
+@media (max-width: 768px) {
+  .participants-main { padding: 88px 16px 32px; }
+}
+.participants-breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+}
+.participants-breadcrumbs .breadcrumb-link {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  text-decoration: underline;
+}
+.participants-breadcrumbs .breadcrumb-link:hover { color: #2563eb; }
+.participants-breadcrumbs .breadcrumb-sep { color: #9ca3af; }
+.participants-breadcrumbs .breadcrumb-current { color: #111827; }
 .page-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; padding: 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; }
 .header-left { display: flex; align-items: center; gap: 16px; }
 .count-badge { display: flex; flex-direction: column; gap: 4px; }
@@ -211,7 +255,8 @@ function goBack() {
 .meta { margin: 0; font-size: 12px; color: #6b7280; display: flex; align-items: center; gap: 6px; }
 .meta-icon { font-size: 14px; }
 .amount-badge { display: inline-block; padding: 4px 10px; border-radius: 6px; background: rgba(26,40,59,0.1); color: #1a283b; font-size: 13px; font-weight: 700; align-self: flex-start; }
-.actions { display: flex; gap: 4px; }
-.btn-icon { padding: 8px; border: none; background: #f3f4f6; border-radius: 8px; cursor: pointer; font-size: 14px; }
+.actions { display: flex; gap: 4px; align-items: center; }
+.btn-icon { padding: 8px; border: none; background: #f3f4f6; border-radius: 8px; cursor: pointer; font-size: 14px; text-decoration: none; color: inherit; display: inline-flex; align-items: center; justify-content: center; }
+.btn-message:hover { background: #e0e7ff; }
 .btn-remove:hover { background: #fee2e2; }
 </style>

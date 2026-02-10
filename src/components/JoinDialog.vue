@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { registerEventByJoinCode } from '@/api/event'
 import type { PublicEvent } from '@/types/events'
+import { useToast } from '@/composables/useToast'
 
 const props = defineProps<{
   event: PublicEvent | null
@@ -17,6 +18,7 @@ const emit = defineEmits<{
 
 const authStore = useAuthStore()
 const { isLoggedIn, user } = storeToRefs(authStore)
+const toast = useToast()
 
 const name = ref('')
 const phone = ref('')
@@ -82,7 +84,22 @@ async function onSubmit() {
       phone: phone.value.trim(),
       ...(email.value?.trim() ? { email: email.value.trim() } : {}),
     }
-    await registerEventByJoinCode(joinCode.value, payload)
+    const res = await registerEventByJoinCode(joinCode.value, payload) as
+      | { success?: boolean; message?: string; data?: { already_joined?: boolean } }
+      | unknown
+
+    const success = (res as any)?.success ?? true
+    const alreadyJoined = !!(res as any)?.data?.already_joined
+    const message = (res as any)?.message as string | undefined
+
+    if (success) {
+      if (alreadyJoined) {
+        toast.info(message || 'You have already joined this event.')
+      } else {
+        toast.success(message || 'Congratulations! You have joined this event.')
+      }
+    }
+
     emit('success')
     emit('close')
   } catch (e: unknown) {

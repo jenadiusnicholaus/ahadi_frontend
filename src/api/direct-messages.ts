@@ -30,12 +30,36 @@ export function sendDirectMessage(payload: SendDirectMessagePayload): Promise<un
   return post<unknown>(dmPath(''), payload)
 }
 
+/** Single message in conversation thread (shape may vary; normalized in UI). */
+export interface ConversationMessage {
+  id: number
+  sender?: number
+  sender_id?: number
+  sender_name?: string
+  recipient?: number
+  recipient_id?: number
+  recipient_name?: string
+  title?: string
+  content?: string
+  created_at?: string
+  is_read?: boolean
+  [key: string]: unknown
+}
+
+/** GET conversation may return { results: ConversationMessage[] } or ConversationMessage[]. */
+export interface ConversationResponse {
+  results?: ConversationMessage[]
+  [key: string]: unknown
+}
+
 /**
  * GET /api/v1/direct-messages/conversation/{user_id}/
  * Get conversation history with a user (messages where current user is sender/recipient and user_id is the other party).
  */
-export function fetchConversation(userId: number | string): Promise<unknown> {
-  return getWithAuth<unknown>(dmPath(`conversation/${encodeURIComponent(String(userId))}/`))
+export function fetchConversation(userId: number | string): Promise<ConversationResponse | ConversationMessage[]> {
+  return getWithAuth<ConversationResponse | ConversationMessage[]>(
+    dmPath(`conversation/${encodeURIComponent(String(userId))}/`)
+  )
 }
 
 /**

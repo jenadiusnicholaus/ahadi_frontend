@@ -50,11 +50,23 @@ async function loadContributions() {
   loading.value = true
   error.value = null
   try {
-    const data = await fetchEventContributions(eventId.value) as { results?: ContributionItem[] } | ContributionItem[]
+    const raw = await fetchEventContributions(eventId.value)
+    const data = raw as
+      | ContributionItem[]
+      | { results?: ContributionItem[]; data?: { contributions?: ContributionItem[] }; contributions?: ContributionItem[] }
     if (Array.isArray(data)) {
       contributions.value = data
-    } else if (data && typeof data === 'object' && 'results' in data) {
-      contributions.value = (data as { results: ContributionItem[] }).results ?? []
+    } else if (data && typeof data === 'object') {
+      const inner = (data as { data?: { contributions?: ContributionItem[] } }).data
+      if (inner && Array.isArray(inner.contributions)) {
+        contributions.value = inner.contributions
+      } else if (Array.isArray((data as { results?: ContributionItem[] }).results)) {
+        contributions.value = (data as { results: ContributionItem[] }).results
+      } else if (Array.isArray((data as { contributions?: ContributionItem[] }).contributions)) {
+        contributions.value = (data as { contributions: ContributionItem[] }).contributions
+      } else {
+        contributions.value = []
+      }
     } else {
       contributions.value = []
     }
@@ -180,9 +192,15 @@ function goBack() {
   <div class="contributions-page">
     <WebNavbar />
     <main class="contributions-main">
-      <button type="button" class="back-link" @click="goBack">
-        <span class="back-icon">←</span> Back
-      </button>
+      <nav v-if="event" class="contributions-breadcrumbs" aria-label="Breadcrumb">
+        <button type="button" class="breadcrumb-link" @click="router.push({ name: 'home' })">Home</button>
+        <span class="breadcrumb-sep">/</span>
+        <button type="button" class="breadcrumb-link" @click="router.push({ name: 'events' })">Events</button>
+        <span class="breadcrumb-sep">/</span>
+        <button type="button" class="breadcrumb-link" @click="goBack">{{ event.title }}</button>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">Contributions</span>
+      </nav>
 
       <template v-if="event">
         <header class="page-header">
@@ -307,10 +325,32 @@ function goBack() {
 </template>
 
 <style scoped>
-.contributions-page { min-height: 100vh; background: #f8fafc; }
-.contributions-main { max-width: 720px; margin: 0 auto; padding: 24px 20px 48px; padding-top: 72px; }
-.back-link { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 20px; padding: 8px 0; font-size: 14px; color: #6b7280; background: none; border: none; cursor: pointer; }
-.back-link:hover { color: #1a283b; }
+.contributions-page { min-height: 100vh; background: #fff; }
+.contributions-main { max-width: 720px; margin: 0 auto; padding: 96px 24px 48px; }
+@media (max-width: 768px) {
+  .contributions-main { padding: 88px 16px 32px; }
+}
+.contributions-breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+}
+.contributions-breadcrumbs .breadcrumb-link {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  text-decoration: underline;
+}
+.contributions-breadcrumbs .breadcrumb-link:hover { color: #2563eb; }
+.contributions-breadcrumbs .breadcrumb-sep { color: #9ca3af; }
+.contributions-breadcrumbs .breadcrumb-current { color: #111827; }
 .page-header { margin-bottom: 24px; }
 .page-title { font-size: 22px; font-weight: 700; color: #1a1a2e; margin: 0 0 4px; }
 .page-subtitle { font-size: 14px; color: #6b7280; margin: 0; }

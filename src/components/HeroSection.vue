@@ -1,46 +1,58 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { ref, onMounted } from 'vue'
-import { fetchEventByJoinCode } from '@/api/event'
+import { ref, computed, onMounted } from 'vue'
 import { getAccessToken } from '@/api/token'
-import JoinDialog from '@/components/JoinDialog.vue'
-import { HERO_VIDEO_URL, HERO_VIDEO_TYPE, HERO_IMAGE_FALLBACK } from '@/config/app'
+import { HERO_VIDEO_URL } from '@/config/app'
 
 const useCssAnimation = false // Disabled - using real video
-import type { PublicEvent } from '@/types/events'
+
+const props = defineProps<{
+  onJoinWithCode?: () => void
+}>()
+
+/** Resolved URL for the hero video. Local paths (e.g. /videos/herovideo.mp4) are used as-is so the request shows in Network. */
+const heroVideoSrc = computed(() => {
+  const url = (HERO_VIDEO_URL || '').trim()
+  if (!url) return '/videos/herovideo.mp4'
+  if (url.startsWith('http')) return url
+  return url.startsWith('/') ? url : `/${url}`
+})
 
 const router = useRouter()
 const isLoaded = ref(false)
 const useVideo = ref(true)
 const videoError = ref(false)
 const videoLoaded = ref(false)
+const mp4RetryCount = ref(0)
+const heroVideoKey = ref(0)
 
 function onVideoError(e: Event) {
-  console.warn('Hero video failed to load, falling back to image. Video URL:', HERO_VIDEO_URL, e)
+  const target = e.target as HTMLVideoElement | null
+  const err = target?.error
+  const code = err?.code
+  const msg = err?.message || ''
+  console.warn('Hero video error:', { code, message: msg, url: HERO_VIDEO_URL })
+
+  if (mp4RetryCount.value < 1) {
+    mp4RetryCount.value += 1
+    heroVideoKey.value += 1
+    return
+  }
   videoError.value = true
   useVideo.value = false
-  // Force re-render to show fallback image
-  setTimeout(() => {
-    console.log('Fallback image should now be visible')
-  }, 100)
 }
 
-function onVideoLoaded() {
+function onVideoLoaded(e: Event) {
   videoLoaded.value = true
+  const el = e.target as HTMLVideoElement | null
+  if (el) {
+    el.play().catch(() => {})
+  }
   console.log('Hero video loaded successfully')
 }
 
-const showCodeModal = ref(false)
-const joinCodeInput = ref('')
-const codeError = ref('')
-const codeLoading = ref(false)
-const eventForJoin = ref<PublicEvent | null>(null)
-const showJoinModal = ref(false)
-
 function onJoinWithCode() {
-  joinCodeInput.value = ''
-  codeError.value = ''
-  showCodeModal.value = true
+  props.onJoinWithCode?.()
 }
 
 function onCreateEvent() {
@@ -59,55 +71,8 @@ function onCreateEvent() {
   }
 }
 
-async function onCodeSubmit() {
-  const code = joinCodeInput.value?.trim().toUpperCase()
-  if (!code) {
-    codeError.value = 'Please enter an event code.'
-    return
-  }
-  codeLoading.value = true
-  codeError.value = ''
-  try {
-    const res = await fetchEventByJoinCode(code) as { data?: PublicEvent; success?: boolean } | PublicEvent
-    const event = (res && typeof res === 'object' && 'data' in res && res.data)
-      ? res.data
-      : (res as PublicEvent)
-    if (event && (event as PublicEvent).join_code) {
-      eventForJoin.value = event as PublicEvent
-      showCodeModal.value = false
-      showJoinModal.value = true
-    } else {
-      codeError.value = 'Event not found. Check the code and try again.'
-    }
-  } catch {
-    codeError.value = 'Event not found. Check the code and try again.'
-  } finally {
-    codeLoading.value = false
-  }
-}
-
-function closeCodeModal() {
-  showCodeModal.value = false
-  codeError.value = ''
-}
-
-function closeJoinModal() {
-  showJoinModal.value = false
-  eventForJoin.value = null
-}
-
 onMounted(() => {
-  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (prefersReducedMotion) {
-    useVideo.value = false
-    console.log('Reduced motion preference detected, using static image')
-  } else {
-    if (HERO_VIDEO_TYPE === 'youtube') {
-      console.log('Loading YouTube video:', HERO_VIDEO_URL)
-    } else {
-      console.log('Loading video from:', HERO_VIDEO_URL)
-    }
-  }
+  console.log('Hero video URL:', heroVideoSrc.value)
   setTimeout(() => {
     isLoaded.value = true
   }, 100)
@@ -116,38 +81,23 @@ onMounted(() => {
 
 <template>
   <section id="hero" class="hero">
-    <!-- YouTube embed - Event/celebration video from internet -->
-    <iframe
-      v-if="useVideo && HERO_VIDEO_TYPE === 'youtube'"
-      class="hero-video hero-video-youtube"
-      :src="`https://www.youtube.com/embed/${HERO_VIDEO_URL}?autoplay=1&mute=1&loop=1&playlist=${HERO_VIDEO_URL}&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1&start=0`"
-      frameborder="0"
-      allow="autoplay; encrypted-media; picture-in-picture"
-      allowfullscreen
-      loading="eager"
-    />
-    <!-- MP4 video -->
+    <!-- Local MP4 only (public/videos/) -->
     <video
-      v-else-if="useVideo && HERO_VIDEO_TYPE === 'mp4'"
-      class="hero-video"
-      :src="HERO_VIDEO_URL"
+      v-if="useVideo"
+      :key="heroVideoKey"
+      class="hero-video hero-video-mp4"
+      :src="heroVideoSrc"
       autoplay
       muted
       loop
       playsinline
       preload="auto"
-      poster="/images/static_images/homepage.png"
       @error="onVideoError"
       @loadeddata="onVideoLoaded"
       @canplay="onVideoLoaded"
     />
-    <!-- Fallback image -->
-    <div
-      v-else
-      class="hero-bg-image"
-      :style="{ backgroundImage: `url(${HERO_IMAGE_FALLBACK})` }"
-      aria-hidden="true"
-    />
+    <!-- No image fallback: solid background when video off or failed -->
+    <div v-else class="hero-bg-solid" aria-hidden="true" />
     <div class="hero-container" :class="{ 'is-loaded': isLoaded }">
       
       <!-- Main Content Grid -->
@@ -259,38 +209,6 @@ onMounted(() => {
       </div>
     </div>
   </section>
-
-  <!-- Join with Code: enter code then open join form -->
-  <Teleport to="body">
-    <Transition name="modal">
-      <div v-if="showCodeModal" class="code-modal-backdrop" @click.self="closeCodeModal">
-        <div class="code-modal-box">
-          <h3 class="code-modal-title">Join Event</h3>
-          <p class="code-modal-text">Enter the event code shared by the organizer.</p>
-          <input
-            v-model="joinCodeInput"
-            type="text"
-            class="code-modal-input"
-            placeholder="e.g. ABC123"
-            @keydown.enter="onCodeSubmit"
-          />
-          <p v-if="codeError" class="code-modal-error">{{ codeError }}</p>
-          <div class="code-modal-actions">
-            <button type="button" class="code-modal-btn secondary" @click="closeCodeModal">Cancel</button>
-            <button type="button" class="code-modal-btn primary" :disabled="codeLoading" @click="onCodeSubmit">
-              {{ codeLoading ? 'Looking up…' : 'Continue' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Transition>
-    <JoinDialog
-      :event="eventForJoin"
-      :open="showJoinModal"
-      @close="closeJoinModal"
-      @success="closeJoinModal"
-    />
-  </Teleport>
 </template>
 
 <style scoped>
@@ -324,14 +242,20 @@ onMounted(() => {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   position: relative;
   overflow: hidden;
+  overflow-x: hidden;
   box-sizing: border-box;
+  max-width: 100%;
 }
 
 @media (max-width: 967px) {
   .hero {
     align-items: center;
-    padding: 56px 16px 32px;
-    padding-top: max(56px, calc(52px + env(safe-area-inset-top)));
+    padding: 56px 20px 40px;
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+    padding-bottom: max(40px, env(safe-area-inset-bottom));
+    /* Extra top padding so fixed mobile navbar doesn't cover "Event Contribution Platform" */
+    padding-top: max(88px, calc(72px + env(safe-area-inset-top)));
   }
 }
 
@@ -349,22 +273,22 @@ onMounted(() => {
   }
 }
 
-/* Video or image background layer */
+/* Video or solid background layer */
 .hero-video,
-.hero-bg-image {
+.hero-bg-solid {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
   z-index: 0;
 }
 
-.hero-bg-image {
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  opacity: 0.88;
+.hero-video {
+  object-fit: cover;
+}
+
+.hero-bg-solid {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
 }
 
 /* CSS Animated Background - smooth zoom and pan effect */
@@ -425,26 +349,12 @@ onMounted(() => {
   filter: brightness(1.05) contrast(1.1) saturate(1.1);
 }
 
-.hero-video-youtube {
+.hero-video-mp4 {
   width: 100%;
   height: 100%;
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  /* Scale YouTube video to cover full area and hide edges */
-  transform: scale(1.4);
-  transform-origin: center;
-  pointer-events: none;
-  border: none;
-  /* Ensure video covers entire hero section */
   min-width: 100%;
   min-height: 100%;
-}
-
-@media (max-width: 768px) {
-  .hero-video-youtube {
-    transform: scale(1.6);
-  }
+  object-fit: cover;
 }
 
 /* Ensure video is visible and playing */
@@ -514,6 +424,8 @@ onMounted(() => {
   opacity: 0;
   transform: translateY(20px);
   transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 0;
+  box-sizing: border-box;
 }
 
 .hero-container.is-loaded {
@@ -530,26 +442,39 @@ onMounted(() => {
   gap: 24px;
 }
 
-/* Mobile: full-screen left part only – hide metrics, center main + buttons */
+/* Mobile: 1) Hero text, 2) Platform Metrics, 3) Two buttons at bottom */
 @media (max-width: 967px) {
   .hero-grid {
     min-height: calc(100vh - 52px - 88px);
     min-height: calc(100dvh - 52px - 88px);
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
+    align-items: stretch;
     gap: 28px;
-  }
-  .hero-sidebar {
-    display: none;
+    width: 100%;
+    max-width: 100%;
+    padding-bottom: 32px;
   }
   .hero-main {
     order: 1;
+    width: 100%;
+    max-width: 100%;
+    text-align: left;
+  }
+  .hero-sidebar {
+    display: flex;
+    order: 2;
+    width: 100%;
+    max-width: 100%;
   }
   .hero-actions {
-    order: 2;
+    order: 3;
     justify-content: flex-start;
-    margin-top: 0;
+    margin-top: auto;
+    margin-bottom: 0;
+    width: 100%;
+    max-width: 100%;
   }
 }
 
@@ -627,6 +552,7 @@ onMounted(() => {
     0 2px 4px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
+  display: block;
 }
 
 .hero-heading {
@@ -644,6 +570,7 @@ onMounted(() => {
     0 0 20px rgba(255, 255, 255, 0.5);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
+  overflow-wrap: break-word;
 }
 
 @media (max-width: 967px) {
@@ -662,6 +589,11 @@ onMounted(() => {
 }
 
 @media (max-width: 480px) {
+  .hero {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+
   .hero-heading {
     font-size: 24px;
     line-height: 1.2;
@@ -681,12 +613,15 @@ onMounted(() => {
   .hero-actions {
     flex-direction: column;
     width: 100%;
-    gap: 10px;
+    max-width: 100%;
+    gap: 12px;
   }
   
   .btn {
     width: 100%;
+    max-width: 100%;
     justify-content: center;
+    box-sizing: border-box;
   }
 }
 
@@ -732,6 +667,7 @@ onMounted(() => {
     0 2px 4px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
+  overflow-wrap: break-word;
 }
 
 @media (max-width: 967px) {
@@ -1139,119 +1075,4 @@ onMounted(() => {
   }
 }
 
-/* Join with Code modal */
-.code-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 300;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-.code-modal-box {
-  background: #fff;
-  border-radius: 16px;
-  padding: 28px;
-  width: 100%;
-  max-width: 420px;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
-}
-.code-modal-title {
-  margin: 0 0 10px;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #1a1a2e;
-}
-.code-modal-text {
-  margin: 0 0 20px;
-  font-size: 0.9375rem;
-  color: #52525b;
-  line-height: 1.5;
-}
-.code-modal-input {
-  width: 100%;
-  padding: 14px 16px;
-  border: 2px solid #e5e7eb;
-  border-radius: 12px;
-  font-size: 1.125rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-align: center;
-  text-transform: uppercase;
-  box-sizing: border-box;
-  margin-bottom: 8px;
-  color: #1a1a2e;
-  background: #fff;
-  transition: border-color 0.2s ease;
-}
-.code-modal-input:focus {
-  outline: none;
-  border-color: #1a1a2e;
-  box-shadow: 0 0 0 3px rgba(26, 26, 46, 0.1);
-}
-.code-modal-input::placeholder {
-  text-transform: none;
-  font-weight: 400;
-  color: #9ca3af;
-  letter-spacing: normal;
-}
-.code-modal-error {
-  margin: 0 0 12px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #dc2626;
-  padding: 10px 14px;
-  background: #fef2f2;
-  border-radius: 8px;
-  border: 1px solid #fecaca;
-}
-.code-modal-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 20px;
-}
-.code-modal-btn {
-  flex: 1;
-  padding: 14px 20px;
-  border-radius: 12px;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  border: none;
-  transition: all 0.2s ease;
-}
-.code-modal-btn.secondary {
-  background: #f3f4f6;
-  color: #374151;
-}
-.code-modal-btn.secondary:hover {
-  background: #e5e7eb;
-}
-.code-modal-btn.primary {
-  background: #1a1a2e;
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(26, 26, 46, 0.3);
-}
-.code-modal-btn.primary:hover:not(:disabled) {
-  background: #0f0f14;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(26, 26, 46, 0.4);
-}
-.code-modal-btn.primary:disabled {
-  background: #9ca3af;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.2s ease;
-}
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
 </style>

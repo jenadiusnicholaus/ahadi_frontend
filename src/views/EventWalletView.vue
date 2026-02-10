@@ -59,6 +59,12 @@ async function loadEvent() {
   }
 }
 
+function toNum(v: unknown): number {
+  if (v === undefined || v === null) return 0
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
 async function load() {
   if (!eventId.value) return
   loading.value = true
@@ -70,11 +76,40 @@ async function load() {
       fetchEventDisbursements(eventId.value).catch(() => []),
       fetchEventContributions(eventId.value).catch(() => []),
     ])
-    payout.value = payoutRes as PayoutSummary | null
-    const d = disbRes as { results?: DisbursementItem[] } | DisbursementItem[]
-    disbursements.value = Array.isArray(d) ? d : (d?.results ?? [])
-    const c = contribRes as { results?: unknown[] } | unknown[]
-    contributionsCount.value = Array.isArray(c) ? c.length : (c?.results?.length ?? 0)
+    const rawPayout = payoutRes as { data?: PayoutSummary & { summary?: PayoutSummary }; gross_amount?: unknown } | null
+    const payoutData = rawPayout?.data ?? rawPayout
+    const summary = payoutData && typeof payoutData === 'object' && (payoutData as { summary?: PayoutSummary }).summary
+    const source = summary ?? payoutData
+    if (source && typeof source === 'object') {
+      const s = source as Record<string, unknown>
+      payout.value = {
+        gross_amount: toNum(s.gross_amount),
+        total_fees: toNum(s.total_fees),
+        net_payout: toNum(s.net_payout),
+        net_amount: toNum(s.net_amount),
+        available_balance: toNum(s.available_balance),
+        total_disbursed: toNum(s.total_disbursed),
+        fee_percent: typeof s.fee_percent === 'string' ? s.fee_percent : String(s.fee_percent ?? ''),
+      }
+    } else {
+      payout.value = null
+    }
+    const d = disbRes as { data?: DisbursementItem[]; results?: DisbursementItem[] } | DisbursementItem[]
+    if (Array.isArray(d)) {
+      disbursements.value = d
+    } else if (d?.data && Array.isArray(d.data)) {
+      disbursements.value = d.data
+    } else {
+      disbursements.value = d?.results ?? []
+    }
+    const c = contribRes as { data?: { contributions?: unknown[] }; results?: unknown[] } | unknown[]
+    if (Array.isArray(c)) {
+      contributionsCount.value = c.length
+    } else if (c && typeof c === 'object' && (c as { data?: { contributions?: unknown[] } }).data?.contributions) {
+      contributionsCount.value = ((c as { data: { contributions: unknown[] } }).data.contributions).length
+    } else {
+      contributionsCount.value = (c as { results?: unknown[] })?.results?.length ?? 0
+    }
   } catch (e) {
     error.value = e instanceof Error ? e : new Error('Failed to load wallet')
   } finally {
@@ -85,10 +120,10 @@ async function load() {
 onMounted(() => load())
 watch(() => route.params.id, () => load())
 
-const available = computed(() => payout.value?.available_balance ?? payout.value?.net_amount ?? 0)
 const gross = computed(() => payout.value?.gross_amount ?? 0)
 const fees = computed(() => payout.value?.total_fees ?? 0)
 const net = computed(() => payout.value?.net_payout ?? payout.value?.net_amount ?? 0)
+const available = computed(() => net.value)
 const totalDisbursed = computed(() => payout.value?.total_disbursed ?? 0)
 const feePercent = computed(() => payout.value?.fee_percent ?? '3')
 const canWithdraw = computed(() => available.value > 0)
@@ -119,9 +154,15 @@ function goToTransactions() {
   <div class="wallet-page">
     <WebNavbar />
     <main class="wallet-main">
-      <button type="button" class="back-link" @click="goBack">
-        <span class="back-icon">←</span> Back
-      </button>
+      <nav v-if="event" class="wallet-breadcrumbs" aria-label="Breadcrumb">
+        <button type="button" class="breadcrumb-link" @click="router.push({ name: 'home' })">Home</button>
+        <span class="breadcrumb-sep">/</span>
+        <button type="button" class="breadcrumb-link" @click="router.push({ name: 'events' })">Events</button>
+        <span class="breadcrumb-sep">/</span>
+        <button type="button" class="breadcrumb-link" @click="goBack">{{ event.title }}</button>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">Wallet</span>
+      </nav>
 
       <template v-if="event">
         <header class="event-header card">
@@ -231,10 +272,32 @@ function goToTransactions() {
 </template>
 
 <style scoped>
-.wallet-page { min-height: 100vh; background: #f8fafc; }
-.wallet-main { max-width: 720px; margin: 0 auto; padding: 24px 20px 48px; padding-top: 72px; }
-.back-link { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 20px; padding: 8px 0; font-size: 14px; color: #6b7280; background: none; border: none; cursor: pointer; }
-.back-link:hover { color: #1a283b; }
+.wallet-page { min-height: 100vh; background: #fff; }
+.wallet-main { max-width: 720px; margin: 0 auto; padding: 96px 24px 48px; }
+@media (max-width: 768px) {
+  .wallet-main { padding: 88px 16px 32px; }
+}
+.wallet-breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+}
+.wallet-breadcrumbs .breadcrumb-link {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  text-decoration: underline;
+}
+.wallet-breadcrumbs .breadcrumb-link:hover { color: #2563eb; }
+.wallet-breadcrumbs .breadcrumb-sep { color: #9ca3af; }
+.wallet-breadcrumbs .breadcrumb-current { color: #111827; }
 .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; }
 .event-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
 .event-icon { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background: rgba(26,40,59,0.1); border-radius: 12px; font-size: 28px; }

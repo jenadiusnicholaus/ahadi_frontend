@@ -6,8 +6,10 @@ import WebNavbar from '@/components/WebNavbar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { getMe, deleteMe, patchMeProfilePicture } from '@/api/auth'
 import { mediaUrl } from '@/api/client'
+import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
+const toast = useToast()
 const fileInput = ref<HTMLInputElement | null>(null)
 const uploadingPhoto = ref(false)
 const photoError = ref('')
@@ -17,6 +19,12 @@ const { user: storeUser } = storeToRefs(authStore)
 const loading = ref(true)
 const errorMessage = ref('')
 const profile = ref<Record<string, unknown> | null>(null)
+
+// Delete account dialog state
+const showDeleteDialog = ref(false)
+const deleteStep = ref<1 | 2>(1)
+const deleteConfirmText = ref('')
+const deletingAccount = ref(false)
 
 async function loadProfile() {
   loading.value = true
@@ -130,27 +138,49 @@ function goToTransactions() {
   router.push({ name: 'transactions' })
 }
 
-async function doLogout() {
-  try {
-    await authStore.logout()
-    router.push({ name: 'login' })
-  } catch {
-    router.push({ name: 'login' })
-  }
+function confirmDelete() {
+  // Step 1: open dialog with first warning
+  errorMessage.value = ''
+  deleteStep.value = 1
+  deleteConfirmText.value = ''
+  showDeleteDialog.value = true
 }
 
-function confirmDelete() {
-  if (!window.confirm('Are you sure you want to delete your account? This cannot be undone.')) return
-  deleteAccount()
+function closeDeleteDialog() {
+  if (deletingAccount.value) return
+  showDeleteDialog.value = false
+  deleteStep.value = 1
+  deleteConfirmText.value = ''
+}
+
+function goToFinalDeleteStep() {
+  deleteStep.value = 2
 }
 
 async function deleteAccount() {
+  if (deleteStep.value !== 2) return
+
+  if (deleteConfirmText.value.trim().toUpperCase() !== 'DELETE') {
+    toast.error('Please type DELETE to confirm')
+    return
+  }
+
+  deletingAccount.value = true
+  errorMessage.value = ''
   try {
     await deleteMe()
     authStore.logout()
+    toast.success('Your account has been deleted successfully')
+    showDeleteDialog.value = false
     router.push({ name: 'login' })
   } catch (e) {
-    errorMessage.value = e instanceof Error ? e.message : 'Failed to delete account'
+    const msg = e instanceof Error ? e.message : 'Failed to delete account'
+    errorMessage.value = msg
+    toast.error(msg)
+  } finally {
+    deletingAccount.value = false
+    deleteConfirmText.value = ''
+    deleteStep.value = 1
   }
 }
 
@@ -179,63 +209,64 @@ onMounted(() => loadProfile())
       </div>
 
       <template v-else-if="displayUser">
-        <div class="profile-picture-section">
-          <input
-            ref="fileInput"
-            type="file"
-            accept="image/*"
-            class="photo-input"
-            aria-label="Upload profile photo"
-            @change="onPhotoSelected"
-          />
-          <button
-            type="button"
-            class="avatar-wrap avatar-btn"
-            :disabled="uploadingPhoto"
-            @click="triggerPhotoUpload"
-          >
-            <div v-if="uploadingPhoto" class="avatar-overlay"><span class="spinner" /></div>
-            <img
-              v-else-if="profilePictureUrl"
-              :src="profilePictureUrl"
-              alt="Profile"
-              class="avatar-img"
+        <div class="profile-layout">
+          <div class="profile-left">
+            <input
+              ref="fileInput"
+              type="file"
+              accept="image/*"
+              class="photo-input"
+              aria-label="Upload profile photo"
+              @change="onPhotoSelected"
             />
-            <span v-else class="avatar-initial">{{ initial }}</span>
-          </button>
-          <p v-if="photoError" class="photo-error">{{ photoError }}</p>
-          <button type="button" class="btn-change-photo" :disabled="uploadingPhoto" @click="triggerPhotoUpload">
-            {{ uploadingPhoto ? 'Uploading…' : 'Change profile photo' }}
-          </button>
-          <p class="profile-name">{{ fullName }}</p>
-          <p class="profile-phone">{{ phone }}</p>
+            <button
+              type="button"
+              class="avatar-wrap avatar-btn avatar-large"
+              :disabled="uploadingPhoto"
+              @click="triggerPhotoUpload"
+            >
+              <div v-if="uploadingPhoto" class="avatar-overlay"><span class="spinner" /></div>
+              <img
+                v-else-if="profilePictureUrl"
+                :src="profilePictureUrl"
+                alt="Profile"
+                class="avatar-img"
+              />
+              <span v-else class="avatar-initial">{{ initial }}</span>
+            </button>
+            <p v-if="photoError" class="photo-error">{{ photoError }}</p>
+            <button type="button" class="btn-change-photo" :disabled="uploadingPhoto" @click="triggerPhotoUpload">
+              {{ uploadingPhoto ? 'Uploading…' : 'Change profile photo' }}
+            </button>
+          </div>
+          <div class="profile-right">
+            <section class="card card-personal">
+              <h2 class="card-title">Personal Information</h2>
+              <hr class="card-divider" />
+              <div class="info-row">
+                <span class="info-icon" aria-hidden="true">👤</span>
+                <div class="info-content">
+                  <span class="info-label">Full Name</span>
+                  <span class="info-value">{{ fullName }}</span>
+                </div>
+              </div>
+              <div class="info-row">
+                <span class="info-icon" aria-hidden="true">📱</span>
+                <div class="info-content">
+                  <span class="info-label">Phone</span>
+                  <span class="info-value">{{ phone }}</span>
+                </div>
+              </div>
+              <div class="info-row">
+                <span class="info-icon" aria-hidden="true">✉️</span>
+                <div class="info-content">
+                  <span class="info-label">Email</span>
+                  <span class="info-value">{{ email }}</span>
+                </div>
+              </div>
+            </section>
+          </div>
         </div>
-
-        <section class="card">
-          <h2 class="card-title">Personal Information</h2>
-          <hr class="card-divider" />
-          <div class="info-row">
-            <span class="info-icon" aria-hidden="true">👤</span>
-            <div class="info-content">
-              <span class="info-label">Full Name</span>
-              <span class="info-value">{{ fullName }}</span>
-            </div>
-          </div>
-          <div class="info-row">
-            <span class="info-icon" aria-hidden="true">📱</span>
-            <div class="info-content">
-              <span class="info-label">Phone</span>
-              <span class="info-value">{{ phone }}</span>
-            </div>
-          </div>
-          <div class="info-row">
-            <span class="info-icon" aria-hidden="true">✉️</span>
-            <div class="info-content">
-              <span class="info-label">Email</span>
-              <span class="info-value">{{ email }}</span>
-            </div>
-          </div>
-        </section>
 
         <section class="card subscription-card" :style="{ borderColor: planColor + '40' }">
           <div class="subscription-inner" :style="{ background: `linear-gradient(135deg, ${planColor}18, ${planColor}08)` }">
@@ -315,25 +346,99 @@ onMounted(() => loadProfile())
         </section>
 
         <div class="actions">
-          <button type="button" class="btn-logout" @click="doLogout">Logout</button>
           <button type="button" class="btn-delete" @click="confirmDelete">Delete Account</button>
         </div>
       </template>
     </main>
+
+    <!-- Delete account confirmation flow -->
+    <Teleport to="body">
+      <div v-if="showDeleteDialog" class="delete-backdrop" @click.self="closeDeleteDialog">
+        <div class="delete-modal" role="dialog" aria-modal="true">
+          <h2 class="delete-title">
+            {{ deleteStep === 1 ? 'Delete Account' : 'Final Confirmation' }}
+          </h2>
+          <p v-if="deleteStep === 1" class="delete-text">
+            Are you sure you want to delete your account? This action cannot be undone. All your events and data
+            will be permanently deleted.
+          </p>
+          <div v-else class="delete-body">
+            <p class="delete-text">
+              This is your final warning. Your account and all associated data will be permanently deleted.
+            </p>
+            <label class="delete-label" for="delete-confirm-input">
+              Type <strong>DELETE</strong> to confirm:
+            </label>
+            <input
+              id="delete-confirm-input"
+              v-model="deleteConfirmText"
+              type="text"
+              class="delete-input"
+              placeholder="DELETE"
+              :disabled="deletingAccount"
+            >
+          </div>
+
+          <div class="delete-actions">
+            <button type="button" class="delete-btn cancel" :disabled="deletingAccount" @click="closeDeleteDialog">
+              Cancel
+            </button>
+            <button
+              v-if="deleteStep === 1"
+              type="button"
+              class="delete-btn danger"
+              @click="goToFinalDeleteStep"
+            >
+              Delete
+            </button>
+            <button
+              v-else
+              type="button"
+              class="delete-btn danger"
+              :disabled="deletingAccount"
+              @click="deleteAccount"
+            >
+              {{ deletingAccount ? 'Deleting…' : 'Delete Forever' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <style scoped>
 .profile-page {
   min-height: 100vh;
-  background: #f8fafc;
+  background: #fff;
 }
 
 .profile-main {
-  max-width: 560px;
+  max-width: 900px;
   margin: 0 auto;
   padding: 24px 16px;
-  padding-top: 72px;
+  padding-top: 100px;
+}
+
+.profile-layout {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.profile-left {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.profile-right {
+  flex: 1;
+  min-width: 280px;
 }
 
 .profile-header {
@@ -401,9 +506,14 @@ onMounted(() => loadProfile())
   cursor: pointer;
 }
 
-.profile-picture-section {
-  text-align: center;
-  margin-bottom: 24px;
+.avatar-large {
+  width: 220px;
+  height: 220px;
+  margin: 0 0 12px;
+}
+
+.avatar-large .avatar-initial {
+  font-size: 72px;
 }
 
 .photo-input {
@@ -476,8 +586,19 @@ onMounted(() => loadProfile())
   color: #1a283b;
 }
 
-.profile-name { font-size: 24px; font-weight: 700; color: #1e293b; margin: 0 0 4px; }
-.profile-phone { font-size: 14px; color: #64748b; margin: 0; }
+.card-personal {
+  margin-bottom: 0;
+}
+
+@media (max-width: 640px) {
+  .profile-layout {
+    flex-direction: column;
+    align-items: center;
+  }
+  .profile-right {
+    width: 100%;
+  }
+}
 
 .card {
   background: #fff;
@@ -601,33 +722,126 @@ onMounted(() => loadProfile())
 .feature-icon { font-size: 18px; }
 .feature-label { font-size: 14px; }
 
-.actions { margin-top: 24px; display: flex; flex-direction: column; gap: 12px; max-width: 400px; margin-left: auto; margin-right: auto; }
-
-.btn-logout {
-  width: 100%;
-  padding: 14px;
-  font-size: 15px;
-  font-weight: 500;
-  color: #ea580c;
-  background: transparent;
-  border: 1px solid #ea580c;
-  border-radius: 8px;
-  cursor: pointer;
+.actions {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
 }
-
-.btn-logout:hover { background: #fff7ed; }
 
 .btn-delete {
   width: 100%;
-  padding: 14px;
-  font-size: 15px;
-  font-weight: 500;
-  color: #dc2626;
-  background: transparent;
-  border: 1px solid #dc2626;
+  padding: 12px 16px;
+  border-radius: 999px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: #b91c1c;
+  background: #fef2f2;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.1s ease;
+}
+.btn-delete:hover {
+  background: #fee2e2;
+  box-shadow: 0 8px 16px rgba(185, 28, 28, 0.15);
+  transform: translateY(-1px);
+}
+.btn-delete:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* Delete account modal */
+.delete-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.delete-modal {
+  width: 100%;
+  max-width: 420px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px 20px 20px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.35);
+}
+
+.delete-title {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.delete-text {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+.delete-body {
+  margin-top: 4px;
+}
+
+.delete-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.delete-input {
+  width: 100%;
+  padding: 10px 12px;
   border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  font-size: 14px;
+}
+
+.delete-input:focus {
+  outline: none;
+  border-color: #b91c1c;
+  box-shadow: 0 0 0 1px rgba(185, 28, 28, 0.3);
+}
+
+.delete-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.delete-btn {
+  min-width: 110px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid transparent;
   cursor: pointer;
 }
 
-.btn-delete:hover { background: #fef2f2; }
+.delete-btn.cancel {
+  background: #f3f4f6;
+  color: #111827;
+  border-color: #e5e7eb;
+}
+
+.delete-btn.danger {
+  background: #dc2626;
+  color: #fff;
+}
+
+.delete-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
 </style>

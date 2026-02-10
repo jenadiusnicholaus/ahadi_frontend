@@ -98,19 +98,20 @@ function goToCreateEvent() {
 <style scoped>
 .events-page {
   min-height: 100vh;
-  background: #f8fafc;
+  background: #fff;
 }
 
 .events-main {
   max-width: 1200px;
   margin: 0 auto;
   padding: 32px 24px 48px;
-  padding-top: 72px;
+  /* Extra top padding so fixed navbar doesn't overlap the header */
+  padding-top: 96px;
 }
 
 @media (max-width: 768px) {
   .events-main {
-    padding: 72px 16px 32px;
+    padding: 88px 16px 32px;
   }
 }
 

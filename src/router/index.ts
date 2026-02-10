@@ -8,6 +8,8 @@ import EventContributionsView from '@/views/EventContributionsView.vue'
 import EventParticipantsView from '@/views/EventParticipantsView.vue'
 import EventWalletView from '@/views/EventWalletView.vue'
 import EventTransactionsView from '@/views/EventTransactionsView.vue'
+import EventAnnouncementsView from '@/views/EventAnnouncementsView.vue'
+import EventInvitationsView from '@/views/EventInvitationsView.vue'
 import EditEventView from '@/views/EditEventView.vue'
 import EventChatView from '@/views/EventChatView.vue'
 import CalendarView from '@/views/CalendarView.vue'
@@ -84,6 +86,18 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/events/:id/announcements',
+      name: 'events-announcements',
+      component: EventAnnouncementsView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/events/:id/invitations',
+      name: 'events-invitations',
+      component: EventInvitationsView,
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/events/:id/edit',
       name: 'events-edit',
       component: EditEventView,
@@ -104,7 +118,10 @@ const router = createRouter({
     {
       path: '/events/:id/chat',
       name: 'events-chat',
-      component: EventChatView,
+      redirect: (to) => ({
+        name: 'messages',
+        query: { eventId: String(to.params.id ?? '') },
+      }),
       meta: { requiresAuth: true },
     },
     {

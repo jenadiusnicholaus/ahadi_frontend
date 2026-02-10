@@ -4,6 +4,9 @@ import { useRoute, useRouter } from 'vue-router'
 import WebNavbar from '@/components/WebNavbar.vue'
 import { fetchEventById, patchEvent } from '@/api/event'
 import { fetchEventTypes } from '@/api/event_type'
+import InvitationTemplatePickerModal from '@/components/InvitationTemplatePickerModal.vue'
+import { fetchInvitationTemplateById } from '@/api/invitation-templates'
+import type { InvitationTemplate } from '@/api/invitation-templates'
 import type { PublicEvent } from '@/types/events'
 import type { EventType } from '@/types/events'
 
@@ -29,6 +32,14 @@ const form = reactive({
   contributionTarget: '',
   visibility: 'PRIVATE',
   status: 'ACTIVE',
+  invitationCardTemplateId: null as number | null,
+  weddingGroomName: '',
+  weddingBrideName: '',
+  weddingCeremonyTime: '',
+  weddingReceptionTime: '',
+  weddingReceptionVenue: '',
+  weddingDressCode: '',
+  weddingRsvpPhone: '',
 })
 
 const eventId = computed(() => {
@@ -77,6 +88,22 @@ async function loadEvent() {
     form.contributionTarget = (e.contribution_target ?? '').toString().trim()
     form.visibility = e.visibility ?? 'PRIVATE'
     form.status = e.status ?? 'ACTIVE'
+    form.invitationCardTemplateId = e.invitation_card_template ?? null
+    selectedTemplate.value = null
+    if (e.invitation_card_template != null) {
+      try {
+        selectedTemplate.value = await fetchInvitationTemplateById(e.invitation_card_template)
+      } catch {
+        selectedTemplate.value = null
+      }
+    }
+    form.weddingGroomName = e.wedding_groom_name ?? ''
+    form.weddingBrideName = e.wedding_bride_name ?? ''
+    form.weddingCeremonyTime = e.wedding_ceremony_time ?? ''
+    form.weddingReceptionTime = e.wedding_reception_time ?? ''
+    form.weddingReceptionVenue = e.wedding_reception_venue ?? ''
+    form.weddingDressCode = e.wedding_dress_code ?? ''
+    form.weddingRsvpPhone = e.wedding_rsvp_phone ?? ''
     error.value = null
   } catch (e) {
     error.value = e instanceof Error ? e : new Error('Failed to load event')
@@ -99,6 +126,31 @@ async function load() {
   if (!eventId.value) return
   await loadEvent()
   await loadTypes()
+}
+
+const selectedEventType = computed(() =>
+  eventTypes.value.find((t) => t.id === form.eventTypeId) ?? null
+)
+const isWedding = computed(() => {
+  const slug = selectedEventType.value?.slug
+  return slug != null && slug.toLowerCase() === 'wedding'
+})
+const showTemplateModal = ref(false)
+const selectedTemplate = ref<InvitationTemplate | null>(null)
+
+function openTemplateModal() {
+  showTemplateModal.value = true
+}
+
+function onTemplateSelect(t: InvitationTemplate) {
+  form.invitationCardTemplateId = t.id
+  selectedTemplate.value = t
+  showTemplateModal.value = false
+}
+
+function clearTemplate() {
+  form.invitationCardTemplateId = null
+  selectedTemplate.value = null
 }
 
 onMounted(() => load())
@@ -135,6 +187,18 @@ async function save() {
     if (end) payload.end_date = end
     const target = String(form.contributionTarget ?? '').trim()
     if (target) payload.contribution_target = target
+    if (isWedding.value) {
+      if (form.invitationCardTemplateId != null) payload.invitation_card_template = form.invitationCardTemplateId
+      if (form.weddingGroomName.trim()) payload.wedding_groom_name = form.weddingGroomName.trim()
+      if (form.weddingBrideName.trim()) payload.wedding_bride_name = form.weddingBrideName.trim()
+      const ct = form.weddingCeremonyTime?.trim()
+      if (ct) payload.wedding_ceremony_time = ct
+      const rt = form.weddingReceptionTime?.trim()
+      if (rt) payload.wedding_reception_time = rt
+      if (form.weddingReceptionVenue.trim()) payload.wedding_reception_venue = form.weddingReceptionVenue.trim()
+      if (form.weddingDressCode.trim()) payload.wedding_dress_code = form.weddingDressCode.trim()
+      if (form.weddingRsvpPhone.trim()) payload.wedding_rsvp_phone = form.weddingRsvpPhone.trim()
+    }
     await patchEvent(eventId.value, payload)
     router.push({ name: 'event-public', params: { id: String(eventId.value) } })
   } catch (e) {
@@ -157,9 +221,15 @@ function goBack() {
   <div class="edit-event-page">
     <WebNavbar />
     <main class="edit-main">
-      <button type="button" class="back-link" @click="goBack">
-        <span class="back-icon">←</span> Back
-      </button>
+      <nav v-if="event" class="edit-breadcrumbs" aria-label="Breadcrumb">
+        <button type="button" class="breadcrumb-link" @click="router.push({ name: 'home' })">Home</button>
+        <span class="breadcrumb-sep">/</span>
+        <button type="button" class="breadcrumb-link" @click="router.push({ name: 'events' })">Events</button>
+        <span class="breadcrumb-sep">/</span>
+        <button type="button" class="breadcrumb-link" @click="goBack">{{ event.title }}</button>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">Edit</span>
+      </nav>
 
       <template v-if="event">
         <header class="page-header">
@@ -194,6 +264,85 @@ function goBack() {
               <label class="label">Description</label>
               <textarea v-model="form.description" class="input textarea" rows="4" placeholder="Description" />
             </div>
+            <template v-if="isWedding">
+              <div class="wedding-divider" />
+              <h3 class="wedding-heading">Wedding Details</h3>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="label">Groom's Name</label>
+                  <input v-model="form.weddingGroomName" type="text" class="input" placeholder="e.g. John" />
+                </div>
+                <div class="form-group">
+                  <label class="label">Bride's Name</label>
+                  <input v-model="form.weddingBrideName" type="text" class="input" placeholder="e.g. Jane" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="label">Invitation Card Template</label>
+                <div class="template-picker-trigger">
+                  <button
+                    type="button"
+                    class="input template-picker-btn"
+                    @click="openTemplateModal"
+                  >
+                    <span v-if="selectedTemplate">{{ selectedTemplate.name }}</span>
+                    <span v-else class="template-placeholder">Choose a template (optional)</span>
+                  </button>
+                  <button
+                    v-if="selectedTemplate"
+                    type="button"
+                    class="template-clear-btn"
+                    aria-label="Clear template"
+                    @click="clearTemplate"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <InvitationTemplatePickerModal
+                  :open="showTemplateModal"
+                  :selected-template-id="form.invitationCardTemplateId"
+                  @close="showTemplateModal = false"
+                  @select="onTemplateSelect"
+                />
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="label">Ceremony Time</label>
+                  <input v-model="form.weddingCeremonyTime" type="time" class="input" />
+                </div>
+                <div class="form-group">
+                  <label class="label">Reception Time</label>
+                  <input v-model="form.weddingReceptionTime" type="time" class="input" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="label">Reception Venue</label>
+                <input
+                  v-model="form.weddingReceptionVenue"
+                  type="text"
+                  class="input"
+                  placeholder="e.g. Grand Ballroom"
+                />
+              </div>
+              <div class="form-group">
+                <label class="label">Dress Code</label>
+                <input
+                  v-model="form.weddingDressCode"
+                  type="text"
+                  class="input"
+                  placeholder="e.g. Formal"
+                />
+              </div>
+              <div class="form-group">
+                <label class="label">RSVP Phone</label>
+                <input
+                  v-model="form.weddingRsvpPhone"
+                  type="tel"
+                  class="input"
+                  placeholder="e.g. 0712345678"
+                />
+              </div>
+            </template>
           </section>
 
           <section class="form-section card">
@@ -300,15 +449,45 @@ function goBack() {
 </template>
 
 <style scoped>
-.edit-event-page { min-height: 100vh; background: #f8fafc; }
-.edit-main { max-width: 640px; margin: 0 auto; padding: 24px 20px 48px; padding-top: 72px; }
-.back-link { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 20px; padding: 8px 0; font-size: 14px; color: #6b7280; background: none; border: none; cursor: pointer; }
-.back-link:hover { color: #1a283b; }
+.edit-event-page { min-height: 100vh; background: #fff; }
+.edit-main { max-width: 640px; margin: 0 auto; padding: 96px 24px 48px; }
+@media (max-width: 768px) {
+  .edit-main { padding: 88px 16px 32px; }
+}
+.edit-breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+}
+.edit-breadcrumbs .breadcrumb-link {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  text-decoration: underline;
+}
+.edit-breadcrumbs .breadcrumb-link:hover { color: #2563eb; }
+.edit-breadcrumbs .breadcrumb-sep { color: #9ca3af; }
+.edit-breadcrumbs .breadcrumb-current { color: #111827; }
 .page-header { margin-bottom: 24px; }
 .page-title { font-size: 22px; font-weight: 700; color: #1a1a2e; margin: 0 0 4px; }
 .page-subtitle { font-size: 14px; color: #6b7280; margin: 0; }
 .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 20px; margin-bottom: 20px; }
 .form-section .section-title { font-size: 16px; font-weight: 700; color: #1a1a2e; margin: 0 0 16px; }
+.wedding-divider { height: 1px; background: #e5e7eb; margin: 24px 0 16px; }
+.wedding-heading { font-size: 1rem; font-weight: 600; color: #1a1a2e; margin: 0 0 16px; }
+.template-picker-trigger { display: flex; gap: 8px; align-items: stretch; }
+.template-picker-btn { flex: 1; text-align: left; cursor: pointer; appearance: none; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; font-size: 1rem; font-family: inherit; }
+.template-picker-btn:hover { border-color: #3b82f6; }
+.template-placeholder { color: #9ca3af; }
+.template-clear-btn { padding: 8px 14px; font-size: 0.875rem; color: #6b7280; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 8px; cursor: pointer; }
+.template-clear-btn:hover { background: #e5e7eb; color: #374151; }
 .form-group { margin-bottom: 16px; }
 .form-group:last-child { margin-bottom: 0; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }

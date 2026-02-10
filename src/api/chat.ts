@@ -104,10 +104,16 @@ export function fetchEventChatRoom(eventId: number): Promise<ChatRoom> {
   return getWithAuth<ChatRoom>(chatPath(`events/${eventId}/room/`))
 }
 
+/** GET event chat unread response (e.g. { count: number }). */
+export interface EventChatUnreadResponse {
+  count?: number
+  [key: string]: unknown
+}
+
 /**
  * GET /api/v1/chat/events/{event_id}/unread/
  * Get unread message count for the event chat.
  */
-export function fetchEventChatUnread(eventId: number): Promise<unknown> {
-  return getWithAuth<unknown>(chatPath(`events/${eventId}/unread/`))
+export function fetchEventChatUnread(eventId: number): Promise<EventChatUnreadResponse> {
+  return getWithAuth<EventChatUnreadResponse>(chatPath(`events/${eventId}/unread/`))
 }

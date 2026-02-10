@@ -24,6 +24,8 @@ async function loadEvents() {
   }
 }
 
+const now = computed(() => new Date())
+
 const sortedEvents = computed(() => {
   const list = [...events.value]
   list.sort((a, b) => {
@@ -32,6 +34,34 @@ const sortedEvents = computed(() => {
     return aDate.getTime() - bDate.getTime()
   })
   return list
+})
+
+const upcomingEvents = computed(() => {
+  const t = now.value.getTime()
+  return sortedEvents.value.filter((e) => {
+    const d = parseDate(e.start_date)
+    return d && d.getTime() >= t
+  })
+})
+
+const nextEvent = computed(() => upcomingEvents.value[0] ?? null)
+
+const restUpcoming = computed(() => upcomingEvents.value.slice(1))
+
+const pastEvents = computed(() => {
+  const t = now.value.getTime()
+  return sortedEvents.value
+    .filter((e) => {
+      const d = parseDate(e.start_date)
+      return d && d.getTime() < t
+    })
+    .reverse()
+})
+
+const summary = computed(() => {
+  const total = sortedEvents.value.length
+  const upcoming = upcomingEvents.value.length
+  return { total, upcoming }
 })
 
 function parseDate(s: string | undefined): Date | null {
@@ -69,11 +99,11 @@ function durationText(event: PublicEvent): string {
 function timeRemaining(event: PublicEvent): { text: string; type: 'live' | 'ended' | 'upcoming' } {
   const start = parseDate(event.start_date)
   if (!start) return { text: 'Date not set', type: 'upcoming' }
-  const now = new Date()
-  const diffMs = start.getTime() - now.getTime()
+  const nowDate = new Date()
+  const diffMs = start.getTime() - nowDate.getTime()
   if (diffMs < 0) {
     const end = parseDate(event.end_date)
-    if (end && end.getTime() < now.getTime()) return { text: 'Event Ended', type: 'ended' }
+    if (end && end.getTime() < nowDate.getTime()) return { text: 'Event Ended', type: 'ended' }
     return { text: 'Event Live', type: 'live' }
   }
   const days = Math.floor(diffMs / (24 * 60 * 60 * 1000))
@@ -82,6 +112,13 @@ function timeRemaining(event: PublicEvent): { text: string; type: 'live' | 'ende
   if (days > 0) return { text: `${days} day${days === 1 ? '' : 's'} remaining`, type: 'upcoming' }
   if (hours > 0) return { text: `${hours} hour${hours === 1 ? '' : 's'} remaining`, type: 'upcoming' }
   return { text: `${minutes} minute${minutes === 1 ? '' : 's'} remaining`, type: 'upcoming' }
+}
+
+function nextEventSubline(event: PublicEvent): string {
+  const remaining = timeRemaining(event)
+  const dateStr = formatDateTime(event.start_date)
+  if (remaining.type === 'upcoming') return `${remaining.text} · ${dateStr}`
+  return dateStr
 }
 
 function addToCalendar(_event: PublicEvent) {
@@ -131,67 +168,114 @@ onMounted(() => {
         <p class="state-hint">Create or join events to see them here</p>
       </div>
 
-      <ul v-else class="calendar-list">
-        <li
-          v-for="event in sortedEvents"
-          :key="event.id"
-          class="calendar-card"
-          @click="goToEvent(event)"
-        >
-          <div class="card-head">
-            <span class="card-icon" aria-hidden="true">📅</span>
-            <div class="card-head-text">
-              <span class="card-label">Event Schedule</span>
-              <span class="card-sublabel">Dates and reminders</span>
+      <template v-else>
+        <!-- Overview summary -->
+        <section class="calendar-summary" aria-label="Calendar overview">
+          <div class="summary-stats">
+            <div class="summary-stat">
+              <span class="summary-value">{{ summary.total }}</span>
+              <span class="summary-label">Total events</span>
             </div>
-            <button
-              type="button"
-              class="btn-add-calendar"
-              aria-label="Add to calendar"
-              @click.stop="addToCalendar(event)"
-            >
-              Add to Calendar
-            </button>
-          </div>
-
-          <div class="card-dates">
-            <div class="date-row">
-              <span class="date-icon start">▶</span>
-              <div class="date-content">
-                <span class="date-label">Start Date</span>
-                <span class="date-value">{{ formatDateTime(event.start_date) }}</span>
-              </div>
-            </div>
-            <div class="date-row">
-              <span class="date-icon end">■</span>
-              <div class="date-content">
-                <span class="date-label">End Date</span>
-                <span class="date-value">{{ formatDateTime(event.end_date) || '—' }}</span>
-              </div>
+            <div class="summary-stat highlight">
+              <span class="summary-value">{{ summary.upcoming }}</span>
+              <span class="summary-label">Upcoming</span>
             </div>
           </div>
+        </section>
 
-          <div class="card-duration">
-            <span class="duration-icon" aria-hidden="true">⏱</span>
-            <div class="duration-content">
-              <span class="duration-label">Duration</span>
-              <span class="duration-value">{{ durationText(event) }}</span>
-            </div>
-          </div>
-
+        <!-- Next up (most recent coming event) -->
+        <section v-if="nextEvent" class="calendar-next-section">
+          <h2 class="section-title">Next up</h2>
           <div
-            class="card-status"
-            :class="timeRemaining(event).type"
+            class="calendar-card calendar-card-featured"
+            role="button"
+            tabindex="0"
+            @click="goToEvent(nextEvent)"
+            @keydown.enter="goToEvent(nextEvent)"
           >
-            <span class="status-icon" aria-hidden="true">
-              {{ timeRemaining(event).type === 'live' ? '●' : timeRemaining(event).type === 'ended' ? '○' : '◷' }}
-            </span>
-            <span class="status-text">{{ timeRemaining(event).text }}</span>
+            <div class="featured-badge">Soonest</div>
+            <div class="card-featured-head">
+              <span class="card-icon" aria-hidden="true">📅</span>
+              <div class="card-featured-meta">
+                <span class="card-type">{{ nextEvent.event_type_name || 'Event' }}</span>
+                <span class="card-featured-subline">{{ nextEventSubline(nextEvent) }}</span>
+              </div>
+            </div>
+            <h3 class="card-featured-title">{{ nextEvent.title }}</h3>
+            <div class="card-featured-dates">
+              <span class="featured-date">{{ formatDateTime(nextEvent.start_date) }}</span>
+              <span v-if="nextEvent.end_date" class="featured-date-end">→ {{ formatDateTime(nextEvent.end_date) }}</span>
+            </div>
+            <div class="card-featured-actions">
+              <button
+                type="button"
+                class="btn-add-calendar"
+                aria-label="Add to Google Calendar"
+                @click.stop="addToCalendar(nextEvent)"
+              >
+                Add to Google Calendar
+              </button>
+              <button type="button" class="btn-view-event" @click.stop="goToEvent(nextEvent)">
+                View event
+              </button>
+            </div>
           </div>
+        </section>
 
-          <p class="card-event-title">{{ event.title }}</p>
-        </li>
-      </ul>
+        <!-- More upcoming -->
+        <section v-if="restUpcoming.length > 0" class="calendar-list-section">
+          <h2 class="section-title">More upcoming</h2>
+          <ul class="calendar-list">
+            <li
+              v-for="event in restUpcoming"
+              :key="event.id"
+              class="calendar-card calendar-card-compact"
+              @click="goToEvent(event)"
+            >
+              <div class="compact-left">
+                <span class="compact-date">{{ formatDateTime(event.start_date) }}</span>
+                <span class="compact-title">{{ event.title }}</span>
+                <span class="compact-meta">{{ event.event_type_name || 'Event' }} · {{ timeRemaining(event).text }}</span>
+              </div>
+              <button
+                type="button"
+                class="btn-add-calendar compact-btn"
+                aria-label="Add to Google Calendar"
+                @click.stop="addToCalendar(event)"
+              >
+                Add to Google Calendar
+              </button>
+            </li>
+          </ul>
+        </section>
+
+        <!-- Past events -->
+        <section v-if="pastEvents.length > 0" class="calendar-list-section">
+          <h2 class="section-title">Past events</h2>
+          <ul class="calendar-list">
+            <li
+              v-for="event in pastEvents"
+              :key="event.id"
+              class="calendar-card calendar-card-compact past"
+              @click="goToEvent(event)"
+            >
+              <div class="compact-left">
+                <span class="compact-date">{{ formatDateTime(event.start_date) }}</span>
+                <span class="compact-title">{{ event.title }}</span>
+                <span class="compact-meta">{{ event.event_type_name || 'Event' }} · {{ timeRemaining(event).text }}</span>
+              </div>
+              <button
+                type="button"
+                class="btn-add-calendar compact-btn"
+                aria-label="Add to Google Calendar"
+                @click.stop="addToCalendar(event)"
+              >
+                Add to Google Calendar
+              </button>
+            </li>
+          </ul>
+        </section>
+      </template>
     </main>
   </div>
 </template>
@@ -199,14 +283,19 @@ onMounted(() => {
 <style scoped>
 .calendar-page {
   min-height: 100vh;
-  background: #f8fafc;
+  background: #fff;
 }
 
 .calendar-main {
   max-width: 720px;
   margin: 0 auto;
-  padding: 24px 16px;
-  padding-top: 72px;
+  padding: 96px 24px 48px;
+}
+
+@media (max-width: 768px) {
+  .calendar-main {
+    padding: 88px 16px 32px;
+  }
 }
 
 .calendar-header {
@@ -224,6 +313,216 @@ onMounted(() => {
   font-size: 14px;
   color: #64748b;
   margin: 0;
+}
+
+/* Overview summary */
+.calendar-summary {
+  margin-bottom: 28px;
+}
+
+.summary-stats {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.summary-stat {
+  min-width: 100px;
+  padding: 16px 20px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e2e8f0;
+}
+
+.summary-stat.highlight {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.summary-value {
+  display: block;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.2;
+}
+
+.summary-stat.highlight .summary-value {
+  color: #1e293b;
+}
+
+.summary-label {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.summary-stat.highlight .summary-label {
+  color: #64748b;
+}
+
+.section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #475569;
+  margin: 0 0 12px;
+  letter-spacing: 0.02em;
+}
+
+/* Next up featured card */
+.calendar-next-section {
+  margin-bottom: 28px;
+}
+
+.calendar-card-featured {
+  position: relative;
+  padding: 24px;
+  background: #fff;
+  border: 2px solid #e2e8f0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+}
+
+.calendar-card-featured:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.featured-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+.card-featured-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.card-featured-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.card-type {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.card-featured-subline {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.card-featured-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 12px;
+  line-height: 1.3;
+}
+
+.card-featured-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #475569;
+}
+
+.featured-date-end {
+  color: #64748b;
+}
+
+.card-featured-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.btn-view-event {
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: #2563eb;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-view-event:hover {
+  background: #1d4ed8;
+}
+
+/* List sections */
+.calendar-list-section {
+  margin-bottom: 28px;
+}
+
+.calendar-list-section .section-title {
+  margin-bottom: 12px;
+}
+
+.calendar-card-compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  margin-bottom: 10px;
+}
+
+.calendar-card-compact .compact-left {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.compact-date {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.compact-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.compact-meta {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.calendar-card-compact.past .compact-title,
+.calendar-card-compact.past .compact-date {
+  color: #94a3b8;
+}
+
+.calendar-card-compact.past .compact-meta {
+  color: #cbd5e1;
+}
+
+.compact-btn {
+  flex-shrink: 0;
 }
 
 .state {

@@ -252,7 +252,7 @@ onMounted(loadProfile)
 </template>
 
 <style scoped>
-.edit-profile-page { min-height: 100vh; background: #f8fafc; }
+.edit-profile-page { min-height: 100vh; background: #fff; }
 .edit-header {
   display: flex;
   align-items: center;

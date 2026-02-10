@@ -25,6 +25,14 @@ const userInitial = computed(() => {
   return name && typeof name === 'string' && name.length > 0 ? name.charAt(0).toUpperCase() : 'U'
 })
 
+const showLogoutDialog = ref(false)
+function openLogoutDialog() {
+  showLogoutDialog.value = true
+}
+function closeLogoutDialog() {
+  showLogoutDialog.value = false
+}
+
 function goToAccount() {
   router.push({ name: 'home' })
   menuOpen.value = false
@@ -77,6 +85,7 @@ async function onSignOut() {
   authStore.logout()
   closeAccountMenu()
   menuOpen.value = false
+  closeLogoutDialog()
 }
 
 function onDocumentClick(e: MouseEvent) {
@@ -305,15 +314,11 @@ function onSearchSubmit() {
               <span class="mobile-nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
               <span>Calendar</span>
             </button>
-            <button type="button" class="mobile-nav-link" @click="onDashboard(); menuOpen = false">
-              <span class="mobile-nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg></span>
-              <span>Dashboard</span>
-            </button>
             <button type="button" class="mobile-nav-link" @click="onProfile(); menuOpen = false">
               <span class="mobile-nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg></span>
               <span>Profile</span>
             </button>
-            <button type="button" class="mobile-nav-link mobile-nav-link-danger" @click="onSignOut">
+            <button type="button" class="mobile-nav-link mobile-nav-link-danger" @click="openLogoutDialog(); menuOpen = false">
               <span class="mobile-nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>
               <span>Sign Out</span>
             </button>
@@ -333,12 +338,14 @@ function onSearchSubmit() {
               </span>
               <span style="display: inline-block !important; visibility: visible !important;">How It Works</span>
             </button>
+            <!-- Pricing link hidden
             <button type="button" class="mobile-nav-link" @click="scrollToSection(sectionIds.pricing); menuOpen = false" style="display: flex !important; visibility: visible !important; opacity: 1 !important;">
               <span class="mobile-nav-icon" style="display: flex !important; visibility: visible !important;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
               </span>
               <span style="display: inline-block !important; visibility: visible !important;">Pricing</span>
             </button>
+            -->
             <button type="button" class="mobile-nav-link" @click="scrollToSection(sectionIds.about); menuOpen = false" style="display: flex !important; visibility: visible !important; opacity: 1 !important;">
               <span class="mobile-nav-icon" style="display: flex !important; visibility: visible !important;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
@@ -421,9 +428,11 @@ function onSearchSubmit() {
         <button type="button" class="nav-link" @click="scrollToSection(sectionIds.howItWorks)">
           How It Works
         </button>
+        <!-- Pricing link hidden
         <button type="button" class="nav-link" @click="scrollToSection(sectionIds.pricing)">
           Pricing
         </button>
+        -->
         <button type="button" class="nav-link" @click="scrollToSection(sectionIds.about)">
           About
         </button>
@@ -488,16 +497,12 @@ function onSearchSubmit() {
                   <svg class="account-item-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                   <span>Calendar</span>
                 </button>
-                <button type="button" class="account-item" role="menuitem" @click="onDashboard">
-                  <svg class="account-item-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
-                  <span>Dashboard</span>
-                </button>
                 <button type="button" class="account-item" role="menuitem" @click="onProfile">
                   <svg class="account-item-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
                   <span>Profile</span>
                 </button>
                 <div class="account-divider" />
-                <button type="button" class="account-item account-item-danger" role="menuitem" @click="onSignOut">
+                <button type="button" class="account-item account-item-danger" role="menuitem" @click="openLogoutDialog">
                   <svg class="account-item-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                   <span>Sign Out</span>
                 </button>
@@ -512,6 +517,19 @@ function onSearchSubmit() {
       </div>
     </div>
   </header>
+
+  <Teleport to="body">
+    <div v-if="showLogoutDialog" class="logout-backdrop" @click.self="closeLogoutDialog">
+      <div class="logout-modal" role="dialog" aria-modal="true">
+        <h2 class="logout-title">Log out</h2>
+        <p class="logout-text">Are you sure you want to log out from your account?</p>
+        <div class="logout-actions">
+          <button type="button" class="logout-btn cancel" @click="closeLogoutDialog">Cancel</button>
+          <button type="button" class="logout-btn danger" @click="onSignOut">Log out</button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -1427,5 +1445,57 @@ body:has(.mobile-drawer-overlay[style*="display: flex"]) {
   right: 0;
   left: 0;
   min-width: 0;
+}
+
+.logout-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+}
+.logout-modal {
+  width: 100%;
+  max-width: 360px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px 20px 18px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.35);
+}
+.logout-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+}
+.logout-text {
+  margin: 0 0 18px;
+  font-size: 14px;
+  color: #4b5563;
+}
+.logout-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.logout-btn {
+  min-width: 96px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.logout-btn.cancel {
+  background: #f3f4f6;
+  color: #111827;
+  border-color: #e5e7eb;
+}
+.logout-btn.danger {
+  background: #dc2626;
+  color: #fff;
 }
 </style>
