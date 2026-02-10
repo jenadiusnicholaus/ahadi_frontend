@@ -929,7 +929,7 @@ async function markAllReadInbox() {
                   <p class="inbox-conv-preview">Event chat</p>
                 </div>
                 <div class="inbox-conv-meta">
-                  <span v-if="eventChatUnreadCounts[ev.id]" class="inbox-conv-unread">{{ eventChatUnreadCounts[ev.id] > 99 ? '99+' : eventChatUnreadCounts[ev.id] }}</span>
+                  <span v-if="eventChatUnreadCounts[ev.id]" class="inbox-conv-unread">{{ (eventChatUnreadCounts[ev.id] ?? 0) > 99 ? '99+' : eventChatUnreadCounts[ev.id] }}</span>
                 </div>
               </li>
             </ul>
