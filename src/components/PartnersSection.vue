@@ -118,7 +118,7 @@ const PARTNERS = [
         >
           <div class="partner-front">
             <div class="partner-logo-placeholder">
-              <img :src="partner.logo" :alt="partner.name" class="partner-logo-img" />
+              <img :src="partner.logo" :alt="partner.name" class="partner-logo-img" loading="lazy" />
             </div>
             <div class="partner-name">{{ partner.name }}</div>
           </div>

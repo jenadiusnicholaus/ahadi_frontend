@@ -155,7 +155,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;500;600;700;800&display=swap');
+/* Google Fonts loaded in index.html for performance */
 
 /* ============================================
    BASE & VARIABLES

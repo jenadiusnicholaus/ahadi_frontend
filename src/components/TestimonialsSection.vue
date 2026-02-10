@@ -81,7 +81,7 @@ const TESTIMONIALS = [
           </p>
           <div class="card-footer">
             <div class="avatar">
-              <img :src="item.avatar" :alt="item.name" class="avatar-img" />
+              <img :src="item.avatar" :alt="item.name" class="avatar-img" loading="lazy" />
             </div>
             <div class="card-meta">
               <div class="card-name">{{ item.name }}</div>

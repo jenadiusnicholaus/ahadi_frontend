@@ -114,13 +114,9 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocumentClick)
-  window.removeEventListener('scroll', onScroll)
-  if (typeof window !== 'undefined') {
-    window.removeEventListener('resize', handleResize)
-  }
-  if (typeof document !== 'undefined') {
-    document.body.style.overflow = ''
-  }
+  window.removeEventListener('scroll', onScroll, { passive: true } as EventListenerOptions)
+  window.removeEventListener('resize', handleResize)
+  document.body.style.overflow = ''
 })
 
 const isSearching = ref(false)
@@ -559,7 +555,6 @@ function onSearchSubmit() {
   background: #1a1a2e;
   min-height: 52px;
   gap: 10px;
-  transition: background 0.25s ease, backdrop-filter 0.25s ease;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 }
 
@@ -688,7 +683,6 @@ function onSearchSubmit() {
   justify-content: flex-end;
   align-items: stretch;
   background: rgba(0, 0, 0, 0.7) !important;
-  backdrop-filter: blur(8px);
   overflow: hidden;
   pointer-events: auto;
   margin: 0 !important;
