@@ -1,17 +1,19 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, defineAsyncComponent } from 'vue'
 import { useRouter } from 'vue-router'
 import WebNavbar from '@/components/WebNavbar.vue'
 import HeroSection from '@/components/HeroSection.vue'
 import EventTypesSection from '@/components/EventTypesSection.vue'
 import DiscoverEventsSection from '@/components/DiscoverEventsSection.vue'
-import HowItWorksSection from '@/components/HowItWorksSection.vue'
-import TestimonialsSection from '@/components/TestimonialsSection.vue'
-import PartnersSection from '@/components/PartnersSection.vue'
-import PricingSection from '@/components/PricingSection.vue'
-import AboutSection from '@/components/AboutSection.vue'
-import Footer from '@/components/Footer.vue'
 import JoinDialog from '@/components/JoinDialog.vue'
+
+// Lazy-load below-fold sections to prevent browser from freezing
+const HowItWorksSection = defineAsyncComponent(() => import('@/components/HowItWorksSection.vue'))
+const TestimonialsSection = defineAsyncComponent(() => import('@/components/TestimonialsSection.vue'))
+const PartnersSection = defineAsyncComponent(() => import('@/components/PartnersSection.vue'))
+const PricingSection = defineAsyncComponent(() => import('@/components/PricingSection.vue'))
+const AboutSection = defineAsyncComponent(() => import('@/components/AboutSection.vue'))
+const Footer = defineAsyncComponent(() => import('@/components/Footer.vue'))
 import { usePublicEvents } from '@/composables/usePublicEvents'
 import { fetchEventByJoinCode } from '@/api/event'
 import type { PublicEvent } from '@/types/events'

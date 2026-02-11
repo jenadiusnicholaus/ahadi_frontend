@@ -125,9 +125,8 @@ function onClick() {
   border-radius: 18px;
   overflow: hidden;
   border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 0 rgba(255, 255, 255, 0.6) inset;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   cursor: pointer;
-  transition: box-shadow 0.25s, transform 0.25s, border-color 0.25s;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -144,9 +143,8 @@ function onClick() {
 }
 
 .event-card:hover {
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1), 0 1px 0 rgba(255, 255, 255, 0.6) inset;
-  transform: translateY(-3px);
-  border-color: rgba(26, 26, 46, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: rgba(26, 26, 46, 0.12);
 }
 
 .card-image-wrap {
@@ -184,13 +182,7 @@ function onClick() {
 }
 
 .card-image-overlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 60px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);
-  pointer-events: none;
+  display: none;
 }
 
 .card-badge {
@@ -322,9 +314,8 @@ function onClick() {
 
 .card-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+  background: #22c55e;
   border-radius: 999px;
-  transition: width 0.35s ease;
 }
 
 .card-progress-label {
