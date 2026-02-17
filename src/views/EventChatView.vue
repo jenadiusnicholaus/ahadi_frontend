@@ -31,6 +31,10 @@ import {
 import { fetchMyEvents } from '@/api/event'
 import { assetUrl } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
+import { useDmNotificationsWs } from '@/composables/useDmNotificationsWs'
+import { useGroupNotificationsWs } from '@/composables/useGroupNotificationsWs'
+import { useDmChatWs } from '@/composables/useDmChatWs'
+import { useEventChatWs } from '@/composables/useEventChatWs'
 import type { PublicEvent } from '@/types/events'
 
 type TabId = 'personal' | 'event'
@@ -100,6 +104,16 @@ const sending = ref(false)
 const inputText = ref('')
 const listRef = ref<HTMLElement | null>(null)
 const inboxListRef = ref<HTMLElement | null>(null)
+
+// ===== WebSocket connections (connect when Messages page opens) =====
+// DM notifications: real-time updates for DM list
+const dmNotifs = useDmNotificationsWs()
+// Group notifications: real-time updates for event chat list
+const groupNotifs = useGroupNotificationsWs()
+// DM chat: connects when a conversation is selected
+const dmChatWs = useDmChatWs(selectedConversationKey)
+// Event chat: connects when an event is selected in Event Chat tab
+const eventChatWs = useEventChatWs(selectedEventIdForChat)
 
 const eventId = computed(() => {
   // When on /messages, prefer ?eventId=... from query (used by redirect from /events/:id/chat)
@@ -730,6 +744,111 @@ watch(selectedEventIdForChat, (eid) => {
   }
 })
 
+// ===== WebSocket message merging (real-time updates) =====
+
+/** Merge real-time event chat messages from WebSocket into eventChatMessages (avoid dupes). */
+watch(
+  eventChatWs.messages,
+  (wsMessages) => {
+    const eid = selectedEventIdForChat.value
+    if (!eid || wsMessages.length === 0) return
+    const existingIds = new Set(eventChatMessages.value.map((m) => m.id))
+    const toAppend = wsMessages
+      .filter((m) => m.id != null && !existingIds.has(m.id))
+      .map((m) => ({
+        id: m.id,
+        event: eid,
+        sender: m.sender_id,
+        sender_name: m.sender_name ?? 'Unknown',
+        sender_phone: m.sender_phone ?? '',
+        content: m.content ?? '',
+        message_type: m.message_type ?? 'text',
+        created_at: m.created_at ?? new Date().toISOString(),
+        updated_at: m.created_at ?? '',
+        is_deleted: m.is_deleted ?? false,
+        is_read: String(m.is_read ?? ''),
+      }))
+    if (toAppend.length > 0) {
+      eventChatMessages.value = [...eventChatMessages.value, ...toAppend]
+    }
+  },
+  { deep: true }
+)
+
+/** Merge real-time DM messages from WebSocket into dmThreadMessages (avoid dupes). */
+watch(
+  dmChatWs.messages,
+  (wsMessages) => {
+    const recipientId = selectedConversationKey.value
+    if (!recipientId || wsMessages.length === 0) return
+    const existingIds = new Set(dmThreadMessages.value.map((m) => m.id))
+    const myId = currentUserId.value
+    const toAppend = wsMessages
+      .filter((m) => m.id != null && !existingIds.has(m.id))
+      .map((m) => ({
+        id: m.id,
+        sender: m.sender_id,
+        sender_id: m.sender_id,
+        sender_name: m.sender_name ?? 'Unknown',
+        recipient: m.recipient_id,
+        recipient_id: m.recipient_id,
+        recipient_name: m.recipient_name ?? 'Unknown',
+        event: 0,
+        event_title: '',
+        message_type: m.message_type ?? 'DIRECT',
+        message_type_display: 'Direct',
+        title: m.title ?? '',
+        content: m.content ?? '',
+        card_image_url: '',
+        card_pdf_url: '',
+        media_url: '',
+        is_read: m.is_read ?? false,
+        read_at: null,
+        created_at: m.created_at ?? new Date().toISOString(),
+      }))
+    if (toAppend.length > 0) {
+      dmThreadMessages.value = [...dmThreadMessages.value, ...toAppend]
+    }
+  },
+  { deep: true }
+)
+
+/** When DM notification arrives, reload inbox to update unread counts. */
+watch(
+  () => dmNotifs.notifications.value.length,
+  (newLen, oldLen) => {
+    if (newLen > oldLen) {
+      // New DM notification arrived - refresh inbox
+      loadInbox()
+    }
+  }
+)
+
+/** When group notification arrives, reload event unread counts. */
+watch(
+  () => groupNotifs.notifications.value.length,
+  (newLen, oldLen) => {
+    if (newLen > oldLen) {
+      // New group notification - refresh event unread counts
+      loadMyEvents()
+    }
+  }
+)
+
+/** Send DM read receipt when conversation is opened. */
+watch(selectedConversationKey, (key) => {
+  if (key != null && dmChatWs.status.value === 'open') {
+    dmChatWs.sendReadReceipt()
+  }
+})
+
+/** Send event chat read receipt when event is selected. */
+watch(selectedEventIdForChat, (eid) => {
+  if (eid != null && eventChatWs.status.value === 'open') {
+    eventChatWs.sendReadReceipt()
+  }
+})
+
 /** Send message in Event Chat right panel (chat API). */
 async function sendEventChatFromInbox() {
   const eid = selectedEventIdForChat.value
@@ -958,6 +1077,9 @@ async function markAllReadInbox() {
               <span class="inbox-chat-avatar">{{ (openConversationDisplayName || '?').charAt(0).toUpperCase() }}</span>
               <div class="inbox-chat-header-info">
                 <span class="inbox-chat-name">{{ openConversationDisplayName }}</span>
+                <span class="ws-status-badge" :class="dmChatWs.status.value">
+                  {{ dmChatWs.status.value === 'open' ? 'Live' : dmChatWs.status.value === 'connecting' ? 'Connecting...' : dmChatWs.status.value === 'error' ? 'Error' : 'Offline' }}
+                </span>
               </div>
             </header>
             <div v-if="inboxError" class="inbox-chat-error" role="alert">{{ inboxError }}</div>
@@ -1015,6 +1137,9 @@ async function markAllReadInbox() {
               </span>
               <div class="inbox-chat-header-info">
                 <span class="inbox-chat-name">{{ selectedEventForChat.title }}</span>
+                <span class="ws-status-badge" :class="eventChatWs.status.value">
+                  {{ eventChatWs.status.value === 'open' ? 'Live' : eventChatWs.status.value === 'connecting' ? 'Connecting...' : eventChatWs.status.value === 'error' ? 'Error' : 'Offline' }}
+                </span>
               </div>
             </header>
             <div v-if="eventChatError" class="inbox-chat-error" role="alert">{{ eventChatError }}</div>
@@ -1052,16 +1177,6 @@ async function markAllReadInbox() {
                     </li>
                   </ul>
                 </template>
-                <div v-if="eventChatMessages.length > 0" class="inbox-load-newer">
-                  <button
-                    type="button"
-                    class="inbox-load-newer-btn"
-                    :disabled="eventChatLoadingNewer"
-                    @click="loadEventChatNewer"
-                  >
-                    {{ eventChatLoadingNewer ? 'Loading…' : 'Load newer messages' }}
-                  </button>
-                </div>
               </template>
             </div>
             <footer class="inbox-chat-footer">
@@ -2303,12 +2418,42 @@ async function markAllReadInbox() {
 .inbox-chat-header-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
 }
 
 .inbox-chat-name {
   font-size: 16px;
   font-weight: 600;
   color: #111827;
+}
+
+.ws-status-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 10px;
+  text-transform: uppercase;
+}
+.ws-status-badge.open {
+  background: #dcfce7;
+  color: #166534;
+}
+.ws-status-badge.connecting {
+  background: #fef3c7;
+  color: #92400e;
+}
+.ws-status-badge.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.ws-status-badge.closed {
+  background: #f3f4f6;
+  color: #6b7280;
 }
 
 .inbox-chat-header-actions {

@@ -31,3 +31,43 @@ export function fetchPublicInfo(): Promise<unknown> {
 export function fetchPublicPlans(): Promise<unknown> {
   return get<unknown>(publicPath('plans/'))
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Admin Public endpoints (no auth required)
+ * ───────────────────────────────────────────────────────────────────────────── */
+
+export interface TrustedClient {
+  id: number
+  name: string
+  role: string
+  handle?: string
+  quote: string
+  avatar?: string
+  is_active?: boolean
+}
+
+export interface Partner {
+  id: number
+  name: string
+  short_name?: string
+  description?: string
+  category?: string
+  logo?: string
+  is_active?: boolean
+}
+
+/**
+ * GET /api/v1/admin/public/trusted-clients/
+ * Get trusted clients for home page testimonials. No auth required.
+ */
+export function fetchTrustedClients(): Promise<TrustedClient[]> {
+  return get<TrustedClient[]>('admin/public/trusted-clients/')
+}
+
+/**
+ * GET /api/v1/admin/public/partners/
+ * Get partners for home page. No auth required.
+ */
+export function fetchPartners(): Promise<Partner[]> {
+  return get<Partner[]>('admin/public/partners/')
+}

@@ -1,109 +1,32 @@
 <script setup lang="ts">
-/** Shared partner logo asset for now; replace with per-partner paths when available. */
-const PARTNER_LOGO = '/images/partners_images/partner01.png'
+import type { Partner } from '@/api/public'
 
-const PARTNERS = [
-  {
-    id: 1,
-    name: 'Karibu Weddings',
-    shortName: 'Karibu',
-    description: 'Boutique wedding planners using Ahadi to manage contribution lists and guest updates.',
-    category: 'Events',
-    logo: PARTNER_LOGO,
-  },
-  {
-    id: 2,
-    name: 'Moyo Memorial Services',
-    shortName: 'Moyo',
-    description: 'Funeral services company that coordinates family contribution campaigns in one place.',
-    category: 'Memorial',
-    logo: PARTNER_LOGO,
-  },
-  {
-    id: 3,
-    name: 'Upendo Giving Circle',
-    shortName: 'Upendo',
-    description: 'Community giving group using Ahadi for weddings, baby showers, and medical support events.',
-    category: 'Community',
-    logo: PARTNER_LOGO,
-  },
-  {
-    id: 4,
-    name: 'Harusi Hub Events',
-    shortName: 'Harusi',
-    description: 'Event management agency that centralizes all contribution campaigns for clients.',
-    category: 'Events',
-    logo: PARTNER_LOGO,
-  },
-  {
-    id: 5,
-    name: 'Tanzania Giving Network',
-    shortName: 'TGN',
-    description: 'Digital fundraising collective powering recurring campaigns for schools and churches.',
-    category: 'Fundraising',
-    logo: PARTNER_LOGO,
-  },
-  {
-    id: 6,
-    name: 'Shukrani Foundation',
-    shortName: 'Shukrani',
-    description: 'Non-profit using Ahadi to organize transparent, reportable contribution drives.',
-    category: 'NGO',
-    logo: PARTNER_LOGO,
-  },
-  {
-    id: 7,
-    name: 'Mtaa Champions',
-    shortName: 'Mtaa',
-    description: 'Neighborhood support group that runs casual but organized community fundraisers.',
-    category: 'Community',
-    logo: PARTNER_LOGO,
-  },
-  {
-    id: 8,
-    name: 'HopeCare Clinic',
-    shortName: 'HopeCare',
-    description: 'Private clinic using Ahadi to coordinate medical support campaigns for patients.',
-    category: 'Health',
-    logo: PARTNER_LOGO,
-  },
-  {
-    id: 9,
-    name: 'Coastal Alumni Network',
-    shortName: 'CAN',
-    description: 'Alumni association running scholarship and reunion contribution campaigns.',
-    category: 'Alumni',
-    logo: PARTNER_LOGO,
-  },
-  {
-    id: 10,
-    name: 'Safari Moments Studio',
-    shortName: 'Safari',
-    description: 'Photography studio that integrates Ahadi links into event invites for easy gifting.',
-    category: 'Photography',
-    logo: PARTNER_LOGO,
-  },
-  {
-    id: 11,
-    name: 'BrightFuture Academy PTA',
-    shortName: 'BFA PTA',
-    description: 'Parents association using Ahadi for school projects, trips, and welfare funds.',
-    category: 'School',
-    logo: PARTNER_LOGO,
-  },
-  {
-    id: 12,
-    name: 'Harbor City Youth Group',
-    shortName: 'HC Youth',
-    description: 'Youth group coordinating mission trips and outreach support via Ahadi.',
-    category: 'Youth',
-    logo: PARTNER_LOGO,
-  },
-]
+/** Default partner logo */
+const DEFAULT_LOGO = '/images/partners_images/partner01.png'
+
+defineProps<{
+  partners: Partner[]
+}>()
+
+function getLogo(partner: Partner): string {
+  return partner.logo || DEFAULT_LOGO
+}
+
+function getShortName(partner: Partner): string {
+  return partner.short_name || partner.name
+}
+
+function getDescription(partner: Partner): string {
+  return partner.description || `Partner organization using Ahadi.`
+}
+
+function getCategory(partner: Partner): string {
+  return partner.category || 'Partner'
+}
 </script>
 
 <template>
-  <section class="partners">
+  <section v-if="partners && partners.length > 0" class="partners">
     <div class="partners-inner">
       <h2 class="section-heading">Partners</h2>
       <p class="section-subheading">
@@ -112,7 +35,7 @@ const PARTNERS = [
 
       <div class="partners-grid">
         <article
-          v-for="partner in PARTNERS"
+          v-for="partner in partners"
           :key="partner.id"
           class="partner-card"
         >
@@ -124,9 +47,9 @@ const PARTNERS = [
           </div>
           <div class="partner-hover">
             <div class="partner-hover-name">{{ partner.name }}</div>
-            <p class="partner-hover-desc">{{ partner.description }}</p>
+            <p class="partner-hover-desc">{{ getDescription(partner) }}</p>
             <div class="partner-tag">
-              {{ partner.category }}
+              {{ getCategory(partner) }}
             </div>
           </div>
         </article>

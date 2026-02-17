@@ -20,6 +20,7 @@ type Env = {
   API_WHATSAPP_PREFIX?: string
   API_RECEIVE_TIMEOUT?: string
   VITE_AUTH_SCHEME?: string
+  VITE_WEBSOCKET_BASE_URL?: string
 }
 
 function getEnv(): Env {
@@ -87,4 +88,24 @@ export function getApiTimeoutMs(): number {
   if (s == null || s === '') return 60_000
   const n = Number(s)
   return Number.isFinite(n) && n > 0 ? n * 1000 : 60_000
+}
+
+/**
+ * WebSocket base URL (no trailing slash).
+ * Set VITE_WEBSOCKET_BASE_URL in .env (e.g. ws://162.0.233.47:8005)
+ */
+export function getWebSocketBaseUrl(): string {
+  const ws = getEnv().VITE_WEBSOCKET_BASE_URL?.trim()
+  if (ws) return ws.replace(/\/$/, '')
+  // Fallback: derive from API base URL (http -> ws, https -> wss)
+  const api = getApiBaseUrl()
+  if (!api) return ''
+  try {
+    const u = new URL(api)
+    u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:'
+    u.pathname = ''
+    return u.toString().replace(/\/$/, '')
+  } catch {
+    return ''
+  }
 }
