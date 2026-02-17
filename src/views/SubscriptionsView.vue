@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import WebNavbar from '@/components/WebNavbar.vue'
 import {
   fetchSubscriptionPlans,
@@ -25,6 +26,8 @@ interface Plan {
   features?: string[] | Record<string, unknown>
   [key: string]: unknown
 }
+
+const router = useRouter()
 
 const loading = ref(true)
 const error = ref('')

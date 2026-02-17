@@ -38,7 +38,7 @@ function getHandle(client: TrustedClient): string {
           </p>
           <div class="card-footer">
             <div class="avatar">
-              <img :src="getAvatar(client)" :alt="client.name" class="avatar-img" />
+              <img :src="item.avatar" :alt="item.name" class="avatar-img" loading="lazy" />
             </div>
             <div class="card-meta">
               <div class="card-name">{{ client.name }}</div>

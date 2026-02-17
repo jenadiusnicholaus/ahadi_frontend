@@ -41,7 +41,7 @@ function getCategory(partner: Partner): string {
         >
           <div class="partner-front">
             <div class="partner-logo-placeholder">
-              <img :src="getLogo(partner)" :alt="partner.name" class="partner-logo-img" />
+              <img :src="partner.logo" :alt="partner.name" class="partner-logo-img" loading="lazy" />
             </div>
             <div class="partner-name">{{ partner.name }}</div>
           </div>
