@@ -14,6 +14,8 @@ import Footer from '@/components/Footer.vue'
 import JoinDialog from '@/components/JoinDialog.vue'
 import { usePublicEvents } from '@/composables/usePublicEvents'
 import { fetchEventByJoinCode } from '@/api/event'
+import { fetchTrustedClients, fetchPartners } from '@/api/public'
+import type { TrustedClient, Partner } from '@/api/public'
 import type { PublicEvent } from '@/types/events'
 
 const router = useRouter()
@@ -31,6 +33,32 @@ const {
   filterByEventType,
   clearFilters,
 } = usePublicEvents()
+
+// Trusted clients and partners for homepage sections
+const trustedClients = ref<TrustedClient[]>([])
+const partners = ref<Partner[]>([])
+
+async function loadTrustedClients() {
+  try {
+    const res = await fetchTrustedClients()
+    // Handle both array response and {data: [...]} response
+    const data = Array.isArray(res) ? res : (res as any)?.data || (res as any)?.results || []
+    trustedClients.value = Array.isArray(data) ? data : []
+  } catch {
+    trustedClients.value = []
+  }
+}
+
+async function loadPartners() {
+  try {
+    const res = await fetchPartners()
+    // Handle both array response and {data: [...]} response
+    const data = Array.isArray(res) ? res : (res as any)?.data || (res as any)?.results || []
+    partners.value = Array.isArray(data) ? data : []
+  } catch {
+    partners.value = []
+  }
+}
 
 // Join with code flow (GET event by join_code, then show JoinDialog with register API)
 const showCodeModal = ref(false)
@@ -89,6 +117,8 @@ function closeJoinModal() {
 onMounted(() => {
   loadEventTypes()
   loadEvents(1)
+  loadTrustedClients()
+  loadPartners()
 })
 
 function onEventCardClick(event: PublicEvent) {
@@ -156,9 +186,9 @@ function onEventCardClick(event: PublicEvent) {
 
       <HowItWorksSection />
 
-      <TestimonialsSection />
+      <TestimonialsSection :clients="trustedClients" />
 
-      <PartnersSection />
+      <PartnersSection :partners="partners" />
 
       <!-- Pricing temporarily hidden
       <PricingSection />

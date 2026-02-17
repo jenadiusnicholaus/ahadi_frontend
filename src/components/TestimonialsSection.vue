@@ -1,67 +1,24 @@
 <script setup lang="ts">
-/** Shared client avatar for now; replace with per-testimonial paths when available. */
-const CLIENT_AVATAR = '/images/testimony/client01.jpeg'
+import type { TrustedClient } from '@/api/public'
 
-const TESTIMONIALS = [
-  {
-    id: 1,
-    quote:
-      'Ahadi has made it so easy to coordinate contributions for our family events. Transparency has gone up and stress has gone down.',
-    name: 'Fatima Khoury',
-    role: 'Wedding organizer',
-    handle: '@fatima_events',
-    avatar: CLIENT_AVATAR,
-  },
-  {
-    id: 2,
-    quote:
-      'We moved all our fundraising to Ahadi and have never looked back. Guests love how simple it is to contribute from anywhere.',
-    name: 'Hassan Ali',
-    role: 'Community leader',
-    handle: '@hassan_community',
-    avatar: CLIENT_AVATAR,
-  },
-  {
-    id: 3,
-    quote:
-      'For memorial services, the platform gives our extended family one organized place to support and stay informed. It feels truly thoughtful.',
-    name: 'Jorge Martínez',
-    role: 'Family coordinator',
-    handle: '@jorge_family',
-    avatar: CLIENT_AVATAR,
-  },
-  {
-    id: 4,
-    quote:
-      'As an events planner, Ahadi lets me manage multiple contribution campaigns at once. My clients appreciate the clear reporting.',
-    name: 'Nicolás Sánchez',
-    role: 'Events planner',
-    handle: '@nicolas_events',
-    avatar: CLIENT_AVATAR,
-  },
-  {
-    id: 5,
-    quote:
-      'Before Ahadi, tracking who contributed and sending thanks was painful. Now it takes minutes instead of days.',
-    name: 'Noel Jensen',
-    role: 'Fundraising chair',
-    handle: '@noel_funds',
-    avatar: CLIENT_AVATAR,
-  },
-  {
-    id: 6,
-    quote:
-      'Our organization uses Ahadi for all our campaigns. Contributors feel confident and we have a clear audit trail for every shilling.',
-    name: 'Ahmad Khan',
-    role: 'NGO finance officer',
-    handle: '@ahmad_ngofunds',
-    avatar: CLIENT_AVATAR,
-  },
-]
+/** Default avatar for clients without one */
+const DEFAULT_AVATAR = '/images/testimony/client01.jpeg'
+
+defineProps<{
+  clients: TrustedClient[]
+}>()
+
+function getAvatar(client: TrustedClient): string {
+  return client.avatar || DEFAULT_AVATAR
+}
+
+function getHandle(client: TrustedClient): string {
+  return client.handle || `@${client.name.toLowerCase().replace(/\s+/g, '_')}`
+}
 </script>
 
 <template>
-  <section class="testimonials">
+  <section v-if="clients && clients.length > 0" class="testimonials">
     <div class="testimonials-inner">
       <div class="section-label">TESTIMONIALS</div>
       <h2 class="section-heading">Our trusted clients</h2>
@@ -71,22 +28,22 @@ const TESTIMONIALS = [
 
       <div class="cards-grid">
         <article
-          v-for="item in TESTIMONIALS"
-          :key="item.id"
+          v-for="client in clients"
+          :key="client.id"
           class="card"
         >
-          <div class="card-quote-icon" aria-hidden="true">“</div>
+          <div class="card-quote-icon" aria-hidden="true">"</div>
           <p class="card-quote">
-            {{ item.quote }}
+            {{ client.quote }}
           </p>
           <div class="card-footer">
             <div class="avatar">
-              <img :src="item.avatar" :alt="item.name" class="avatar-img" />
+              <img :src="getAvatar(client)" :alt="client.name" class="avatar-img" />
             </div>
             <div class="card-meta">
-              <div class="card-name">{{ item.name }}</div>
-              <div class="card-role">{{ item.role }}</div>
-              <div class="card-handle">{{ item.handle }}</div>
+              <div class="card-name">{{ client.name }}</div>
+              <div class="card-role">{{ client.role }}</div>
+              <div class="card-handle">{{ getHandle(client) }}</div>
             </div>
           </div>
         </article>
