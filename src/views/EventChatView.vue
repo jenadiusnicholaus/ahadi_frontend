@@ -106,13 +106,10 @@ const listRef = ref<HTMLElement | null>(null)
 const inboxListRef = ref<HTMLElement | null>(null)
 
 // ===== WebSocket connections (connect when Messages page opens) =====
-// DM notifications: real-time updates for DM list
+// Initialize WebSocket connections once to prevent multiple connections
 const dmNotifs = useDmNotificationsWs()
-// Group notifications: real-time updates for event chat list
 const groupNotifs = useGroupNotificationsWs()
-// DM chat: connects when a conversation is selected
 const dmChatWs = useDmChatWs(selectedConversationKey)
-// Event chat: connects when an event is selected in Event Chat tab
 const eventChatWs = useEventChatWs(selectedEventIdForChat)
 
 const eventId = computed(() => {
@@ -125,10 +122,14 @@ const eventId = computed(() => {
     }
     return 0
   }
-  const id = route.params.id
-  if (typeof id !== 'string') return 0
-  const n = Number(id)
-  return Number.isFinite(n) && n > 0 ? n : 0
+  // Only check route.params.id for routes that actually have it
+  if (route.name === 'events-detail') {
+    const id = route.params.id
+    if (typeof id !== 'string') return 0
+    const n = Number(id)
+    return Number.isFinite(n) && n > 0 ? n : 0
+  }
+  return 0
 })
 
 /** Event-only layout is disabled; always use inbox layout (tabs + event list). */
@@ -461,8 +462,10 @@ function applyOpenQuery() {
 }
 
 onMounted(() => {
+  console.log('🚀 EventChatView mounted, eventId:', eventId.value)
   // When opened from an event (/events/:id/chat), focus Event Chat tab and pre-select that event.
   if (eventId.value) {
+    console.log('📌 Auto-selecting event chat for event:', eventId.value)
     activeTab.value = 'event'
     inboxFilter.value = 'event'
     selectedEventIdForChat.value = eventId.value
@@ -471,7 +474,7 @@ onMounted(() => {
   load().then(() => applyOpenQuery())
 })
 watch(
-  () => [route.params.id, route.name, route.query.open],
+  () => [route.query.eventId, route.params.id, route.name, route.query.open],
   () => {
     if (eventId.value) {
       activeTab.value = 'event'
@@ -554,7 +557,17 @@ const eventChatMessagesGroupedByDate = computed(() =>
   groupMessagesByDate(eventChatMessages.value)
 )
 
-const messagesGroupedByDate = computed(() => groupMessagesByDate(messages.value))
+const messagesGroupedByDate = computed(() => {
+  // For event chats, prefer WebSocket messages if available, fallback to API messages
+  if (eventId.value > 0 && eventChatMessages.value.length > 0) {
+    console.log('📱 Displaying WebSocket messages for event', eventId.value, ':', eventChatMessages.value.length, 'messages')
+    console.log('📝 WebSocket messages:', eventChatMessages.value)
+    return groupMessagesByDate(eventChatMessages.value)
+  }
+  console.log('📱 Displaying API messages:', messages.value.length, 'messages')
+  console.log('📝 API messages:', messages.value)
+  return groupMessagesByDate(messages.value)
+})
 
 function formatDate(iso?: string): string {
   if (!iso) return ''
@@ -572,23 +585,56 @@ function scrollToBottom() {
   })
 }
 
-async function sendMessage() {
-  const text = inputText.value.trim()
-  if (!text || !eventId.value || sending.value) return
+function sendMessage() {
+  alert('sendMessage function called!')
+  console.log('🎯 sendMessage function called!')
+  console.log('📝 inputText.value:', inputText.value)
+  console.log('📝 inputText.trim():', inputText.value.trim())
+  
+  if (!inputText.value.trim()) {
+    console.log('❌ Message blocked - inputText is empty')
+    return
+  }
+  
+  const messageToSend = inputText.value.trim()
   sending.value = true
   inputText.value = ''
   try {
-    const sent = await sendEventChatMessage(eventId.value, { content: text })
-    messages.value = [...messages.value, sent]
-    await nextTick()
-    scrollToBottom()
-  } catch {
-    inputText.value = text
+    console.log('📤 Sending message via WebSocket (not API):', messageToSend)
+    // Send via WebSocket instead of REST API for real-time delivery
+    eventChatWs.sendMessage(messageToSend)
+    
+    // Optionally add to local UI immediately for better UX
+    // Server will broadcast back to all participants including sender
+    console.log('✅ Message sent via WebSocket')
+  } catch (error) {
+    console.error('❌ Failed to send message via WebSocket:', error)
     error.value = 'Failed to send message'
   } finally {
     sending.value = false
   }
 }
+
+watch(eventChatWs.messages, (newMessages) => {
+  console.log('📱 Displaying WebSocket messages for event', eventId.value, ':', newMessages.length, 'messages')
+  console.log('📝 WebSocket messages:', newMessages)
+  messages.value = newMessages
+  nextTick(() => {
+    scrollToBottom()
+  })
+}, { immediate: true })
+
+watch(eventChatWs.error, (newError) => {
+  if (newError) {
+    error.value = newError
+  }
+})
+
+watch(eventChatWs.wsError, (newError) => {
+  if (newError) {
+    error.value = newError
+  }
+})
 
 function goBack() {
   if (eventId.value) {
@@ -769,6 +815,7 @@ watch(
         is_read: String(m.is_read ?? ''),
       }))
     if (toAppend.length > 0) {
+      console.log('🔄 Merging WebSocket messages into UI:', toAppend.length, 'new messages')
       eventChatMessages.value = [...eventChatMessages.value, ...toAppend]
     }
   },
@@ -849,7 +896,7 @@ watch(selectedEventIdForChat, (eid) => {
   }
 })
 
-/** Send message in Event Chat right panel (chat API). */
+/** Send message in Event Chat right panel (WebSocket). */
 async function sendEventChatFromInbox() {
   const eid = selectedEventIdForChat.value
   const text = eventChatInputText.value.trim()
@@ -858,10 +905,10 @@ async function sendEventChatFromInbox() {
   eventChatInputText.value = ''
   eventChatError.value = null
   try {
-    const sent = await sendEventChatMessage(eid, { content: text })
-    eventChatMessages.value = [...eventChatMessages.value, sent]
+    console.log('📤 Sending event chat message via WebSocket (not API):', text)
+    eventChatWs.sendMessage(text)
   } catch (e) {
-    eventChatError.value = e instanceof Error ? e.message : 'Failed to send'
+    eventChatError.value = e instanceof Error ? e.message : 'Failed to send message'
     eventChatInputText.value = text
   } finally {
     sendingEventChat.value = false
@@ -872,7 +919,7 @@ function clearEventChatSelection() {
   selectedEventIdForChat.value = null
 }
 
-/** Send a direct message in the selected inbox conversation. */
+/** Send a direct message in the selected inbox conversation (WebSocket). */
 async function sendInboxMessage() {
   const text = inboxReplyText.value.trim()
   const recipientId = selectedConversationKey.value
@@ -881,20 +928,16 @@ async function sendInboxMessage() {
   inboxError.value = null
   inboxReplyText.value = ''
   try {
-    await sendDirectMessage({
-      recipient_id: recipientId,
-      title: '',
-      content: text,
-    })
-    await loadInbox()
-    if (dmThreadForUserId.value === recipientId) await loadDmConversation(recipientId)
+    console.log('📤 Sending DM via WebSocket (not API):', text)
+    dmChatWs.sendMessage(text, '')
+    // Note: The UI updates when the WebSocket broadcasts the new message to us.
     await nextTick()
     if (inboxListRef.value) {
       const scrollParent = inboxListRef.value.parentElement
       if (scrollParent) scrollParent.scrollTop = scrollParent.scrollHeight
     }
   } catch (e) {
-    inboxError.value = e instanceof Error ? e.message : 'Failed to send'
+    inboxError.value = e instanceof Error ? e.message : 'Failed to send DM'
     inboxReplyText.value = text
   } finally {
     sendingInbox.value = false
@@ -2464,7 +2507,7 @@ async function markAllReadInbox() {
 .inbox-chat-bg {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 16px 16px;
+  padding: 8px 16px 80px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -2551,6 +2594,11 @@ async function markAllReadInbox() {
   display: flex;
   align-items: center;
   gap: 8px;
+  position: fixed;
+  bottom: 0;
+  left: 320px;
+  right: 0;
+  z-index: 20;
 }
 
 .inbox-chat-input {
