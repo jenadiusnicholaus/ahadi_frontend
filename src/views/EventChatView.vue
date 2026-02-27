@@ -177,21 +177,30 @@ function normalizeConversationMessage(raw: ConversationMessage, otherPartyId: nu
   }
 }
 
-/** Normalize raw API message to ChatMessage shape (handles both /events/.../messages/ and /chat/events/.../messages/). */
-function normalizeMessage(raw: unknown, eventIdNum: number): ChatMessage {
-  const o = raw as Record<string, unknown>
+/** Normalize raw API message to ChatMessage shape. */
+function normalizeMessage(raw: any, eventIdNum: number): ChatMessage {
+  const r = raw as any
+  const sid = Number(
+    typeof r?.sender === 'object' && r?.sender !== null
+      ? (r.sender.id ?? r.sender.user_id ?? 0)
+      : (r?.sender ?? r?.sender_id ?? 0)
+  )
   return {
-    id: Number(o?.id) || 0,
+    id: Number(r?.id) || 0,
     event: eventIdNum,
-    sender: Number(o?.sender ?? o?.sender_id) || 0,
-    sender_name: String(o?.sender_name ?? (o?.sender && typeof o.sender === 'object' && 'full_name' in o.sender ? (o.sender as { full_name?: string }).full_name : null) ?? 'Unknown').trim() || 'Unknown',
-    sender_phone: String(o?.sender_phone ?? '').trim(),
-    content: String(o?.content ?? '').trim(),
-    message_type: String(o?.message_type ?? 'TEXT').trim(),
-    created_at: String(o?.created_at ?? new Date().toISOString()),
-    updated_at: String(o?.updated_at ?? o?.created_at ?? ''),
-    is_deleted: Boolean(o?.is_deleted),
-    is_read: String(o?.is_read ?? ''),
+    sender: sid,
+    sender_name: String(
+      r?.sender_name ?? 
+      (typeof r?.sender === 'object' && r?.sender?.full_name ? r.sender.full_name : null) ?? 
+      'Unknown'
+    ).trim() || 'Unknown',
+    sender_phone: String(r?.sender_phone ?? '').trim(),
+    content: String(r?.content ?? '').trim(),
+    message_type: String(r?.message_type ?? 'TEXT').trim(),
+    created_at: String(r?.created_at ?? new Date().toISOString()),
+    updated_at: String(r?.updated_at ?? r?.created_at ?? ''),
+    is_deleted: Boolean(r?.is_deleted),
+    is_read: String(r?.is_read ?? ''),
   }
 }
 
@@ -487,8 +496,16 @@ watch(
 )
 
 function isMe(msg: ChatMessage): boolean {
-  const senderId = typeof msg.sender === 'number' ? msg.sender : Number((msg as unknown as { sender_id?: number }).sender_id)
-  return senderId === currentUserId.value
+  const currentId = Number(user.value?.id ?? authStore.user?.id ?? 0)
+  if (!currentId) return false
+  
+  const rawSender = msg.sender
+  const senderId = Number(rawSender ?? 0)
+  const match = senderId === currentId
+  
+  // Only log if it's a new message or for debugging
+  // console.log(`[isMe] msg=${msg.id} cur=${currentId} snd=${senderId} match=${match}`)
+  return match
 }
 
 function formatTime(iso?: string): string {
@@ -650,7 +667,17 @@ function openEventChat(ev: PublicEvent) {
 }
 
 function isInboxFromMe(msg: InboxMessage): boolean {
-  return (msg.sender ?? msg.sender_id) === currentUserId.value
+  const currentId = Number(user.value?.id ?? authStore.user?.id ?? 0)
+  if (!currentId) return false
+
+  const rawSender = msg.sender ?? msg.sender_id
+  let senderId = 0
+  if (typeof rawSender === 'object' && rawSender !== null) {
+    senderId = Number((rawSender as any).id ?? (rawSender as any).user_id ?? 0)
+  } else {
+    senderId = Number(rawSender ?? 0)
+  }
+  return senderId === currentId
 }
 
 /** Load DM thread from GET conversation API when a Personal conversation is selected. */
@@ -801,19 +828,8 @@ watch(
     const existingIds = new Set(eventChatMessages.value.map((m) => m.id))
     const toAppend = wsMessages
       .filter((m) => m.id != null && !existingIds.has(m.id))
-      .map((m) => ({
-        id: m.id,
-        event: eid,
-        sender: m.sender_id,
-        sender_name: m.sender_name ?? 'Unknown',
-        sender_phone: m.sender_phone ?? '',
-        content: m.content ?? '',
-        message_type: m.message_type ?? 'text',
-        created_at: m.created_at ?? new Date().toISOString(),
-        updated_at: m.created_at ?? '',
-        is_deleted: m.is_deleted ?? false,
-        is_read: String(m.is_read ?? ''),
-      }))
+      .map((m) => normalizeMessage(m, eid))
+    
     if (toAppend.length > 0) {
       console.log('🔄 Merging WebSocket messages into UI:', toAppend.length, 'new messages')
       eventChatMessages.value = [...eventChatMessages.value, ...toAppend]
@@ -834,11 +850,19 @@ watch(
       .filter((m) => m.id != null && !existingIds.has(m.id))
       .map((m) => ({
         id: m.id,
-        sender: m.sender_id,
-        sender_id: m.sender_id,
+        sender: Number(
+          typeof m.sender_id === 'object' && m.sender_id !== null
+            ? ((m.sender_id as any).id ?? (m.sender_id as any).user_id ?? 0)
+            : (m.sender_id ?? (m as any).sender ?? 0)
+        ),
+        sender_id: Number(
+          typeof m.sender_id === 'object' && m.sender_id !== null
+            ? ((m.sender_id as any).id ?? (m.sender_id as any).user_id ?? 0)
+            : (m.sender_id ?? (m as any).sender ?? 0)
+        ),
         sender_name: m.sender_name ?? 'Unknown',
-        recipient: m.recipient_id,
-        recipient_id: m.recipient_id,
+        recipient: Number(m.recipient_id ?? (m as any).recipient),
+        recipient_id: Number(m.recipient_id ?? (m as any).recipient),
         recipient_name: m.recipient_name ?? 'Unknown',
         event: 0,
         event_title: '',
@@ -1209,10 +1233,12 @@ async function markAllReadInbox() {
                       :key="msg.id"
                       class="inbox-msg-row"
                       :class="{ me: isMe(msg) }"
+                      :data-sender="msg.sender"
                       role="listitem"
                     >
                       <div class="inbox-bubble-wrap" :class="{ me: isMe(msg) }">
                         <div class="inbox-bubble">
+                          <span v-if="!isMe(msg)" class="inbox-bubble-sender">{{ msg.sender_name }}</span>
                           <span class="inbox-bubble-content">{{ msg.content || '—' }}</span>
                           <span class="inbox-bubble-time">{{ formatTime(msg.created_at) }}</span>
                         </div>
@@ -2585,6 +2611,13 @@ async function markAllReadInbox() {
   font-size: 11px;
   color: #667781;
   align-self: flex-end;
+}
+
+.inbox-bubble-sender {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a283b;
+  margin-bottom: 2px;
 }
 
 .inbox-chat-footer {
