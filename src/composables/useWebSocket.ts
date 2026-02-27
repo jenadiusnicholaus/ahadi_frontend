@@ -43,6 +43,7 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
   let reconnectAttempt = 0
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
   let messageCallback: ((data: Record<string, unknown>) => void) | null = null
+  let isConnected = false // Track connection state to prevent duplicates
 
   function buildUrl(): string {
     const base = getWebSocketBaseUrl()
@@ -50,12 +51,6 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
     const pathStr = getPath ? getPath() : path
     const pathNorm = pathStr.replace(/^\//, '')
     const url = base ? `${base}/${pathNorm}` : ''
-    
-    console.log('[WebSocket] Building URL:')
-    console.log('  - Base URL:', base || '(not set)')
-    console.log('  - Path:', pathNorm)
-    console.log('  - Token:', token ? `${token.substring(0, 20)}...` : '(no token)')
-    console.log('  - Full URL (without token):', url)
     
     if (!url) return ''
     const sep = url.includes('?') ? '&' : '?'
@@ -86,8 +81,15 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
     if (typeof window === 'undefined') return
     // Don't connect if getPath returns empty
     if (getPath && !getPath().trim()) return
+    
+    // Prevent duplicate connections
+    if (isConnected && ws?.readyState === WebSocket.OPEN) {
+      console.log('[WebSocket] Already connected, skipping duplicate connection')
+      return
+    }
+    
     const url = buildUrl()
-    console.log('[WebSocket] Attempting to connect:', url)
+    console.log('[WebSocket] Connecting to:', url.replace(/token=[^&]+/, 'token=***'))
     if (!url) {
       error.value = 'WebSocket URL not configured'
       status.value = 'error'
@@ -115,13 +117,15 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
     ws.onopen = () => {
       error.value = null
       status.value = 'open'
+      isConnected = true
       reconnectAttempt = 0
-      console.log('[WebSocket] Connected successfully:', url)
+      console.log('[WebSocket] Connected successfully')
     }
 
     ws.onclose = (event) => {
       ws = null
       status.value = 'closed'
+      isConnected = false
       console.log('[WebSocket] Closed. Code:', event.code, 'Reason:', event.reason)
       if (event.code === 4001 || event.code === 4003) {
         error.value = 'Unauthorized or forbidden'
@@ -141,10 +145,12 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
     }
 
     ws.onmessage = (event) => {
-      console.log('[WebSocket] Message received:', event.data)
       try {
         const data = JSON.parse(event.data as string) as Record<string, unknown>
-        console.log('[WebSocket] Parsed message:', data)
+        // Only log non-ping messages to reduce spam
+        if (data.type !== 'pong') {
+          console.log('[WebSocket] Received:', data.type, data)
+        }
         lastMessage.value = data
         messageCallback?.(data)
       } catch {
@@ -161,7 +167,7 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
 
   function send(payload: Record<string, unknown>) {
     if (ws?.readyState === WebSocket.OPEN) {
-      console.log('[WebSocket] Sending:', payload)
+      console.log('[WebSocket] Sending:', payload.type)
       ws.send(JSON.stringify(payload))
     } else {
       console.warn('[WebSocket] Cannot send - not connected. State:', ws?.readyState)

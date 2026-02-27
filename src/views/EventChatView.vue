@@ -104,15 +104,13 @@ const sending = ref(false)
 const inputText = ref('')
 const listRef = ref<HTMLElement | null>(null)
 const inboxListRef = ref<HTMLElement | null>(null)
+const eventInboxListRef = ref<HTMLElement | null>(null)
 
 // ===== WebSocket connections (connect when Messages page opens) =====
-// DM notifications: real-time updates for DM list
+// Initialize WebSocket connections once to prevent multiple connections
 const dmNotifs = useDmNotificationsWs()
-// Group notifications: real-time updates for event chat list
 const groupNotifs = useGroupNotificationsWs()
-// DM chat: connects when a conversation is selected
 const dmChatWs = useDmChatWs(selectedConversationKey)
-// Event chat: connects when an event is selected in Event Chat tab
 const eventChatWs = useEventChatWs(selectedEventIdForChat)
 
 const eventId = computed(() => {
@@ -125,10 +123,14 @@ const eventId = computed(() => {
     }
     return 0
   }
-  const id = route.params.id
-  if (typeof id !== 'string') return 0
-  const n = Number(id)
-  return Number.isFinite(n) && n > 0 ? n : 0
+  // Only check route.params.id for routes that actually have it
+  if (route.name === 'events-detail') {
+    const id = route.params.id
+    if (typeof id !== 'string') return 0
+    const n = Number(id)
+    return Number.isFinite(n) && n > 0 ? n : 0
+  }
+  return 0
 })
 
 /** Event-only layout is disabled; always use inbox layout (tabs + event list). */
@@ -176,21 +178,30 @@ function normalizeConversationMessage(raw: ConversationMessage, otherPartyId: nu
   }
 }
 
-/** Normalize raw API message to ChatMessage shape (handles both /events/.../messages/ and /chat/events/.../messages/). */
-function normalizeMessage(raw: unknown, eventIdNum: number): ChatMessage {
-  const o = raw as Record<string, unknown>
+/** Normalize raw API message to ChatMessage shape. */
+function normalizeMessage(raw: any, eventIdNum: number): ChatMessage {
+  const r = raw as any
+  const sid = Number(
+    typeof r?.sender === 'object' && r?.sender !== null
+      ? (r.sender.id ?? r.sender.user_id ?? 0)
+      : (r?.sender ?? r?.sender_id ?? 0)
+  )
   return {
-    id: Number(o?.id) || 0,
+    id: Number(r?.id) || 0,
     event: eventIdNum,
-    sender: Number(o?.sender ?? o?.sender_id) || 0,
-    sender_name: String(o?.sender_name ?? (o?.sender && typeof o.sender === 'object' && 'full_name' in o.sender ? (o.sender as { full_name?: string }).full_name : null) ?? 'Unknown').trim() || 'Unknown',
-    sender_phone: String(o?.sender_phone ?? '').trim(),
-    content: String(o?.content ?? '').trim(),
-    message_type: String(o?.message_type ?? 'TEXT').trim(),
-    created_at: String(o?.created_at ?? new Date().toISOString()),
-    updated_at: String(o?.updated_at ?? o?.created_at ?? ''),
-    is_deleted: Boolean(o?.is_deleted),
-    is_read: String(o?.is_read ?? ''),
+    sender: sid,
+    sender_name: String(
+      r?.sender_name ?? 
+      (typeof r?.sender === 'object' && r?.sender?.full_name ? r.sender.full_name : null) ?? 
+      'Unknown'
+    ).trim() || 'Unknown',
+    sender_phone: String(r?.sender_phone ?? '').trim(),
+    content: String(r?.content ?? '').trim(),
+    message_type: String(r?.message_type ?? 'TEXT').trim(),
+    created_at: String(r?.created_at ?? new Date().toISOString()),
+    updated_at: String(r?.updated_at ?? r?.created_at ?? ''),
+    is_deleted: Boolean(r?.is_deleted),
+    is_read: String(r?.is_read ?? ''),
   }
 }
 
@@ -210,7 +221,6 @@ async function loadMessages() {
     messages.value = list.map((raw) => normalizeMessage(raw, eid))
     await markEventChatRead(eid).catch(() => {})
     await nextTick()
-    scrollToBottom()
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     if (msg.includes('Chat is not enabled') || msg.includes('403')) {
@@ -223,6 +233,7 @@ async function loadMessages() {
     messages.value = []
   } finally {
     loading.value = false
+    scrollToBottom()
   }
 }
 
@@ -461,8 +472,10 @@ function applyOpenQuery() {
 }
 
 onMounted(() => {
+  console.log('🚀 EventChatView mounted, eventId:', eventId.value)
   // When opened from an event (/events/:id/chat), focus Event Chat tab and pre-select that event.
   if (eventId.value) {
+    console.log('📌 Auto-selecting event chat for event:', eventId.value)
     activeTab.value = 'event'
     inboxFilter.value = 'event'
     selectedEventIdForChat.value = eventId.value
@@ -471,7 +484,7 @@ onMounted(() => {
   load().then(() => applyOpenQuery())
 })
 watch(
-  () => [route.params.id, route.name, route.query.open],
+  () => [route.query.eventId, route.params.id, route.name, route.query.open],
   () => {
     if (eventId.value) {
       activeTab.value = 'event'
@@ -484,8 +497,16 @@ watch(
 )
 
 function isMe(msg: ChatMessage): boolean {
-  const senderId = typeof msg.sender === 'number' ? msg.sender : Number((msg as unknown as { sender_id?: number }).sender_id)
-  return senderId === currentUserId.value
+  const currentId = Number(user.value?.id ?? authStore.user?.id ?? 0)
+  if (!currentId) return false
+  
+  const rawSender = msg.sender
+  const senderId = Number(rawSender ?? 0)
+  const match = senderId === currentId
+  
+  // Only log if it's a new message or for debugging
+  // console.log(`[isMe] msg=${msg.id} cur=${currentId} snd=${senderId} match=${match}`)
+  return match
 }
 
 function formatTime(iso?: string): string {
@@ -554,7 +575,17 @@ const eventChatMessagesGroupedByDate = computed(() =>
   groupMessagesByDate(eventChatMessages.value)
 )
 
-const messagesGroupedByDate = computed(() => groupMessagesByDate(messages.value))
+const messagesGroupedByDate = computed(() => {
+  // For event chats, prefer WebSocket messages if available, fallback to API messages
+  if (eventId.value > 0 && eventChatMessages.value.length > 0) {
+    console.log('📱 Displaying WebSocket messages for event', eventId.value, ':', eventChatMessages.value.length, 'messages')
+    console.log('📝 WebSocket messages:', eventChatMessages.value)
+    return groupMessagesByDate(eventChatMessages.value)
+  }
+  console.log('📱 Displaying API messages:', messages.value.length, 'messages')
+  console.log('📝 API messages:', messages.value)
+  return groupMessagesByDate(messages.value)
+})
 
 function formatDate(iso?: string): string {
   if (!iso) return ''
@@ -566,29 +597,83 @@ function formatDate(iso?: string): string {
 }
 
 function scrollToBottom() {
-  nextTick(() => {
-    const el = listRef.value
-    if (el) el.scrollTop = el.scrollHeight
-  })
+  const scrollOnce = () => {
+    // 1. Original layout list
+    if (listRef.value) {
+      listRef.value.scrollTop = listRef.value.scrollHeight
+    }
+    // 2. Personal inbox list
+    if (inboxListRef.value) {
+      inboxListRef.value.scrollTop = inboxListRef.value.scrollHeight
+    }
+    // 3. Event inbox list (WhatsApp layout)
+    if (eventInboxListRef.value) {
+      eventInboxListRef.value.scrollTop = eventInboxListRef.value.scrollHeight
+    }
+  }
+
+  // Attempt 1: Immediate
+  scrollOnce()
+  
+  // Attempt 2: After DOM update
+  nextTick(scrollOnce)
+  
+  // Attempt 3: After slight delay (for images/rendering)
+  setTimeout(scrollOnce, 50)
+  setTimeout(scrollOnce, 200)
 }
 
-async function sendMessage() {
-  const text = inputText.value.trim()
-  if (!text || !eventId.value || sending.value) return
+function sendMessage() {
+  alert('sendMessage function called!')
+  console.log('🎯 sendMessage function called!')
+  console.log('📝 inputText.value:', inputText.value)
+  console.log('📝 inputText.trim():', inputText.value.trim())
+  
+  if (!inputText.value.trim()) {
+    console.log('❌ Message blocked - inputText is empty')
+    return
+  }
+  
+  const messageToSend = inputText.value.trim()
   sending.value = true
   inputText.value = ''
   try {
-    const sent = await sendEventChatMessage(eventId.value, { content: text })
-    messages.value = [...messages.value, sent]
-    await nextTick()
+    console.log('📤 Sending message via WebSocket (not API):', messageToSend)
+    // Send via WebSocket instead of REST API for real-time delivery
+    eventChatWs.sendMessage(messageToSend)
+    
+    // Optionally add to local UI immediately for better UX
+    // Server will broadcast back to all participants including sender
+    console.log('✅ Message sent via WebSocket')
     scrollToBottom()
-  } catch {
-    inputText.value = text
+  } catch (error) {
+    console.error('❌ Failed to send message via WebSocket:', error)
     error.value = 'Failed to send message'
   } finally {
     sending.value = false
   }
 }
+
+watch(eventChatWs.messages, (newMessages) => {
+  console.log('📱 Displaying WebSocket messages for event', eventId.value, ':', newMessages.length, 'messages')
+  console.log('📝 WebSocket messages:', newMessages)
+  messages.value = newMessages
+  nextTick(() => {
+    scrollToBottom()
+  })
+}, { immediate: true })
+
+watch(eventChatWs.error, (newError) => {
+  if (newError) {
+    error.value = newError
+  }
+})
+
+watch(eventChatWs.wsError, (newError) => {
+  if (newError) {
+    error.value = newError
+  }
+})
 
 function goBack() {
   if (eventId.value) {
@@ -604,7 +689,17 @@ function openEventChat(ev: PublicEvent) {
 }
 
 function isInboxFromMe(msg: InboxMessage): boolean {
-  return (msg.sender ?? msg.sender_id) === currentUserId.value
+  const currentId = Number(user.value?.id ?? authStore.user?.id ?? 0)
+  if (!currentId) return false
+
+  const rawSender = msg.sender ?? msg.sender_id
+  let senderId = 0
+  if (typeof rawSender === 'object' && rawSender !== null) {
+    senderId = Number((rawSender as any).id ?? (rawSender as any).user_id ?? 0)
+  } else {
+    senderId = Number(rawSender ?? 0)
+  }
+  return senderId === currentId
 }
 
 /** Load DM thread from GET conversation API when a Personal conversation is selected. */
@@ -621,11 +716,9 @@ async function loadDmConversation(userId: number) {
     dmThreadMessages.value = rawList
       .map((m) => normalizeConversationMessage(m, userId, otherName))
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-  } catch (e) {
-    inboxError.value = e instanceof Error ? e.message : 'Failed to load conversation'
-    dmThreadMessages.value = []
   } finally {
     dmThreadLoading.value = false
+    scrollToBottom()
   }
 }
 
@@ -682,13 +775,9 @@ async function loadEventChatForInbox() {
     eventChatNextPage.value = next ? 2 : null
     await markEventChatRead(eid).catch(() => {})
     eventChatUnreadCounts.value = { ...eventChatUnreadCounts.value, [eid]: 0 }
-  } catch (e) {
-    eventChatError.value = e instanceof Error ? e.message : 'Failed to load chat'
-    eventChatMessages.value = []
-    eventChatRoom.value = null
-    eventChatNextPage.value = null
   } finally {
     eventChatLoading.value = false
+    scrollToBottom()
   }
 }
 
@@ -755,21 +844,12 @@ watch(
     const existingIds = new Set(eventChatMessages.value.map((m) => m.id))
     const toAppend = wsMessages
       .filter((m) => m.id != null && !existingIds.has(m.id))
-      .map((m) => ({
-        id: m.id,
-        event: eid,
-        sender: m.sender_id,
-        sender_name: m.sender_name ?? 'Unknown',
-        sender_phone: m.sender_phone ?? '',
-        content: m.content ?? '',
-        message_type: m.message_type ?? 'text',
-        created_at: m.created_at ?? new Date().toISOString(),
-        updated_at: m.created_at ?? '',
-        is_deleted: m.is_deleted ?? false,
-        is_read: String(m.is_read ?? ''),
-      }))
+      .map((m) => normalizeMessage(m, eid))
+    
     if (toAppend.length > 0) {
+      console.log('🔄 Merging WebSocket messages into UI:', toAppend.length, 'new messages')
       eventChatMessages.value = [...eventChatMessages.value, ...toAppend]
+      scrollToBottom()
     }
   },
   { deep: true }
@@ -787,11 +867,19 @@ watch(
       .filter((m) => m.id != null && !existingIds.has(m.id))
       .map((m) => ({
         id: m.id,
-        sender: m.sender_id,
-        sender_id: m.sender_id,
+        sender: Number(
+          typeof m.sender_id === 'object' && m.sender_id !== null
+            ? ((m.sender_id as any).id ?? (m.sender_id as any).user_id ?? 0)
+            : (m.sender_id ?? (m as any).sender ?? 0)
+        ),
+        sender_id: Number(
+          typeof m.sender_id === 'object' && m.sender_id !== null
+            ? ((m.sender_id as any).id ?? (m.sender_id as any).user_id ?? 0)
+            : (m.sender_id ?? (m as any).sender ?? 0)
+        ),
         sender_name: m.sender_name ?? 'Unknown',
-        recipient: m.recipient_id,
-        recipient_id: m.recipient_id,
+        recipient: Number(m.recipient_id ?? (m as any).recipient),
+        recipient_id: Number(m.recipient_id ?? (m as any).recipient),
         recipient_name: m.recipient_name ?? 'Unknown',
         event: 0,
         event_title: '',
@@ -808,6 +896,7 @@ watch(
       }))
     if (toAppend.length > 0) {
       dmThreadMessages.value = [...dmThreadMessages.value, ...toAppend]
+      scrollToBottom()
     }
   },
   { deep: true }
@@ -849,7 +938,7 @@ watch(selectedEventIdForChat, (eid) => {
   }
 })
 
-/** Send message in Event Chat right panel (chat API). */
+/** Send message in Event Chat right panel (WebSocket). */
 async function sendEventChatFromInbox() {
   const eid = selectedEventIdForChat.value
   const text = eventChatInputText.value.trim()
@@ -858,10 +947,11 @@ async function sendEventChatFromInbox() {
   eventChatInputText.value = ''
   eventChatError.value = null
   try {
-    const sent = await sendEventChatMessage(eid, { content: text })
-    eventChatMessages.value = [...eventChatMessages.value, sent]
+    console.log('📤 Sending event chat message via WebSocket (not API):', text)
+    eventChatWs.sendMessage(text)
+    scrollToBottom()
   } catch (e) {
-    eventChatError.value = e instanceof Error ? e.message : 'Failed to send'
+    eventChatError.value = e instanceof Error ? e.message : 'Failed to send message'
     eventChatInputText.value = text
   } finally {
     sendingEventChat.value = false
@@ -872,7 +962,7 @@ function clearEventChatSelection() {
   selectedEventIdForChat.value = null
 }
 
-/** Send a direct message in the selected inbox conversation. */
+/** Send a direct message in the selected inbox conversation (WebSocket). */
 async function sendInboxMessage() {
   const text = inboxReplyText.value.trim()
   const recipientId = selectedConversationKey.value
@@ -881,20 +971,12 @@ async function sendInboxMessage() {
   inboxError.value = null
   inboxReplyText.value = ''
   try {
-    await sendDirectMessage({
-      recipient_id: recipientId,
-      title: '',
-      content: text,
-    })
-    await loadInbox()
-    if (dmThreadForUserId.value === recipientId) await loadDmConversation(recipientId)
-    await nextTick()
-    if (inboxListRef.value) {
-      const scrollParent = inboxListRef.value.parentElement
-      if (scrollParent) scrollParent.scrollTop = scrollParent.scrollHeight
-    }
+    console.log('📤 Sending DM via WebSocket (not API):', text)
+    dmChatWs.sendMessage(text, '')
+    // Note: The UI updates when the WebSocket broadcasts the new message to us.
+    scrollToBottom()
   } catch (e) {
-    inboxError.value = e instanceof Error ? e.message : 'Failed to send'
+    inboxError.value = e instanceof Error ? e.message : 'Failed to send DM'
     inboxReplyText.value = text
   } finally {
     sendingInbox.value = false
@@ -920,6 +1002,29 @@ async function markAllReadInbox() {
     markingAllRead.value = false
   }
 }
+
+// ===== Robust Auto-Scroll Watchers =====
+
+// Watch the visual message arrays and scroll when they change
+watch(eventChatMessages, () => {
+  scrollToBottom()
+}, { deep: true })
+
+watch(dmThreadMessages, () => {
+  scrollToBottom()
+}, { deep: true })
+
+watch(
+  () => [inboxFilter.value, selectedEventIdForChat.value, selectedConversationKey.value],
+  () => {
+    scrollToBottom()
+  }
+)
+
+// Ensure scroll on initial load completion
+watch(inboxInitialLoad, (loading) => {
+  if (!loading) scrollToBottom()
+})
 </script>
 
 <template>
@@ -1086,9 +1191,9 @@ async function markAllReadInbox() {
             <div v-if="dmThreadLoading && selectedConversationMessages.length === 0" class="inbox-state">
               <p>Loading conversation…</p>
             </div>
-            <div class="inbox-chat-bg">
+            <div ref="inboxListRef" class="inbox-chat-bg">
               <div class="inbox-chat-day-sep">Today</div>
-              <ul ref="inboxListRef" class="inbox-message-list" role="list">
+              <ul class="inbox-message-list" role="list">
                 <li
                   v-for="msg in selectedConversationMessages"
                   :key="msg.id"
@@ -1143,7 +1248,7 @@ async function markAllReadInbox() {
               </div>
             </header>
             <div v-if="eventChatError" class="inbox-chat-error" role="alert">{{ eventChatError }}</div>
-            <div class="inbox-chat-bg">
+            <div ref="eventInboxListRef" class="inbox-chat-bg">
 <div v-if="eventChatLoading && eventChatMessages.length === 0" class="inbox-state">
               <p>Loading chat…</p>
               </div>
@@ -1166,10 +1271,12 @@ async function markAllReadInbox() {
                       :key="msg.id"
                       class="inbox-msg-row"
                       :class="{ me: isMe(msg) }"
+                      :data-sender="msg.sender"
                       role="listitem"
                     >
                       <div class="inbox-bubble-wrap" :class="{ me: isMe(msg) }">
                         <div class="inbox-bubble">
+                          <span v-if="!isMe(msg)" class="inbox-bubble-sender">{{ msg.sender_name }}</span>
                           <span class="inbox-bubble-content">{{ msg.content || '—' }}</span>
                           <span class="inbox-bubble-time">{{ formatTime(msg.created_at) }}</span>
                         </div>
@@ -1498,10 +1605,11 @@ async function markAllReadInbox() {
 
 <style scoped>
 .chat-page {
-  min-height: 100vh;
+  height: 100vh;
   background: #ece5dd;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 .chat-main {
   flex: 1;
@@ -1997,8 +2105,9 @@ async function markAllReadInbox() {
   min-height: 0;
   background: #f3f4f6;
   padding: 0;
-  padding-top: 72px;
+  padding-top: 72px; /* Restore space for fixed navbar */
   width: 100%;
+  overflow: hidden;
 }
 
 .inbox-whatsapp-layout {
@@ -2309,7 +2418,7 @@ async function markAllReadInbox() {
   flex-direction: column;
   min-width: 0;
   background: #efeae2;
-  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d1c4b8' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  position: relative;
 }
 
 .inbox-right-empty {
@@ -2464,7 +2573,7 @@ async function markAllReadInbox() {
 .inbox-chat-bg {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 16px 16px;
+  padding: 8px 16px 80px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -2544,13 +2653,21 @@ async function markAllReadInbox() {
   align-self: flex-end;
 }
 
+.inbox-bubble-sender {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a283b;
+  margin-bottom: 2px;
+}
+
 .inbox-chat-footer {
   padding: 8px 16px 16px;
   background: #f0f2f5;
-  border-left: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
   gap: 8px;
+  z-index: 20;
+  border-top: 1px solid #d1d7db;
 }
 
 .inbox-chat-input {
