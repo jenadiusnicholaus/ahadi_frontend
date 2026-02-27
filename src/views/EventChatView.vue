@@ -104,6 +104,7 @@ const sending = ref(false)
 const inputText = ref('')
 const listRef = ref<HTMLElement | null>(null)
 const inboxListRef = ref<HTMLElement | null>(null)
+const eventInboxListRef = ref<HTMLElement | null>(null)
 
 // ===== WebSocket connections (connect when Messages page opens) =====
 // Initialize WebSocket connections once to prevent multiple connections
@@ -596,10 +597,30 @@ function formatDate(iso?: string): string {
 }
 
 function scrollToBottom() {
-  nextTick(() => {
-    const el = listRef.value
-    if (el) el.scrollTop = el.scrollHeight
-  })
+  const scrollOnce = () => {
+    // 1. Original layout list
+    if (listRef.value) {
+      listRef.value.scrollTop = listRef.value.scrollHeight
+    }
+    // 2. Personal inbox list
+    if (inboxListRef.value) {
+      inboxListRef.value.scrollTop = inboxListRef.value.scrollHeight
+    }
+    // 3. Event inbox list (WhatsApp layout)
+    if (eventInboxListRef.value) {
+      eventInboxListRef.value.scrollTop = eventInboxListRef.value.scrollHeight
+    }
+  }
+
+  // Attempt 1: Immediate
+  scrollOnce()
+  
+  // Attempt 2: After DOM update
+  nextTick(scrollOnce)
+  
+  // Attempt 3: After slight delay (for images/rendering)
+  setTimeout(scrollOnce, 50)
+  setTimeout(scrollOnce, 200)
 }
 
 function sendMessage() {
@@ -624,6 +645,7 @@ function sendMessage() {
     // Optionally add to local UI immediately for better UX
     // Server will broadcast back to all participants including sender
     console.log('✅ Message sent via WebSocket')
+    scrollToBottom()
   } catch (error) {
     console.error('❌ Failed to send message via WebSocket:', error)
     error.value = 'Failed to send message'
@@ -694,6 +716,7 @@ async function loadDmConversation(userId: number) {
     dmThreadMessages.value = rawList
       .map((m) => normalizeConversationMessage(m, userId, otherName))
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    scrollToBottom()
   } catch (e) {
     inboxError.value = e instanceof Error ? e.message : 'Failed to load conversation'
     dmThreadMessages.value = []
@@ -755,6 +778,7 @@ async function loadEventChatForInbox() {
     eventChatNextPage.value = next ? 2 : null
     await markEventChatRead(eid).catch(() => {})
     eventChatUnreadCounts.value = { ...eventChatUnreadCounts.value, [eid]: 0 }
+    scrollToBottom()
   } catch (e) {
     eventChatError.value = e instanceof Error ? e.message : 'Failed to load chat'
     eventChatMessages.value = []
@@ -833,6 +857,7 @@ watch(
     if (toAppend.length > 0) {
       console.log('🔄 Merging WebSocket messages into UI:', toAppend.length, 'new messages')
       eventChatMessages.value = [...eventChatMessages.value, ...toAppend]
+      scrollToBottom()
     }
   },
   { deep: true }
@@ -879,6 +904,7 @@ watch(
       }))
     if (toAppend.length > 0) {
       dmThreadMessages.value = [...dmThreadMessages.value, ...toAppend]
+      scrollToBottom()
     }
   },
   { deep: true }
@@ -931,6 +957,7 @@ async function sendEventChatFromInbox() {
   try {
     console.log('📤 Sending event chat message via WebSocket (not API):', text)
     eventChatWs.sendMessage(text)
+    scrollToBottom()
   } catch (e) {
     eventChatError.value = e instanceof Error ? e.message : 'Failed to send message'
     eventChatInputText.value = text
@@ -955,11 +982,7 @@ async function sendInboxMessage() {
     console.log('📤 Sending DM via WebSocket (not API):', text)
     dmChatWs.sendMessage(text, '')
     // Note: The UI updates when the WebSocket broadcasts the new message to us.
-    await nextTick()
-    if (inboxListRef.value) {
-      const scrollParent = inboxListRef.value.parentElement
-      if (scrollParent) scrollParent.scrollTop = scrollParent.scrollHeight
-    }
+    scrollToBottom()
   } catch (e) {
     inboxError.value = e instanceof Error ? e.message : 'Failed to send DM'
     inboxReplyText.value = text
@@ -987,6 +1010,24 @@ async function markAllReadInbox() {
     markingAllRead.value = false
   }
 }
+
+// ===== Robust Auto-Scroll Watchers =====
+
+// Watch the visual message arrays and scroll when they change
+watch(eventChatMessages, () => {
+  scrollToBottom()
+}, { deep: true })
+
+watch(dmThreadMessages, () => {
+  scrollToBottom()
+}, { deep: true })
+
+watch(
+  () => [inboxFilter.value, selectedEventIdForChat.value, selectedConversationKey.value],
+  () => {
+    scrollToBottom()
+  }
+)
 </script>
 
 <template>
@@ -1153,9 +1194,9 @@ async function markAllReadInbox() {
             <div v-if="dmThreadLoading && selectedConversationMessages.length === 0" class="inbox-state">
               <p>Loading conversation…</p>
             </div>
-            <div class="inbox-chat-bg">
+            <div ref="inboxListRef" class="inbox-chat-bg">
               <div class="inbox-chat-day-sep">Today</div>
-              <ul ref="inboxListRef" class="inbox-message-list" role="list">
+              <ul class="inbox-message-list" role="list">
                 <li
                   v-for="msg in selectedConversationMessages"
                   :key="msg.id"
@@ -1210,7 +1251,7 @@ async function markAllReadInbox() {
               </div>
             </header>
             <div v-if="eventChatError" class="inbox-chat-error" role="alert">{{ eventChatError }}</div>
-            <div class="inbox-chat-bg">
+            <div ref="eventInboxListRef" class="inbox-chat-bg">
 <div v-if="eventChatLoading && eventChatMessages.length === 0" class="inbox-state">
               <p>Loading chat…</p>
               </div>
@@ -1567,10 +1608,11 @@ async function markAllReadInbox() {
 
 <style scoped>
 .chat-page {
-  min-height: 100vh;
+  height: 100vh;
   background: #ece5dd;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 .chat-main {
   flex: 1;
@@ -2066,8 +2108,9 @@ async function markAllReadInbox() {
   min-height: 0;
   background: #f3f4f6;
   padding: 0;
-  padding-top: 72px;
+  padding-top: 72px; /* Restore space for fixed navbar */
   width: 100%;
+  overflow: hidden;
 }
 
 .inbox-whatsapp-layout {
@@ -2379,6 +2422,7 @@ async function markAllReadInbox() {
   min-width: 0;
   background: #efeae2;
   background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d1c4b8' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  position: relative;
 }
 
 .inbox-right-empty {
@@ -2623,15 +2667,11 @@ async function markAllReadInbox() {
 .inbox-chat-footer {
   padding: 8px 16px 16px;
   background: #f0f2f5;
-  border-left: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
   gap: 8px;
-  position: fixed;
-  bottom: 0;
-  left: 320px;
-  right: 0;
   z-index: 20;
+  border-top: 1px solid #d1d7db;
 }
 
 .inbox-chat-input {
