@@ -646,8 +646,8 @@ function sendMessage() {
     // Server will broadcast back to all participants including sender
     console.log('✅ Message sent via WebSocket')
     scrollToBottom()
-  } catch (error) {
-    console.error('❌ Failed to send message via WebSocket:', error)
+  } catch (err: unknown) {
+    console.error('❌ Failed to send message via WebSocket:', err)
     error.value = 'Failed to send message'
   } finally {
     sending.value = false
@@ -657,7 +657,7 @@ function sendMessage() {
 watch(eventChatWs.messages, (newMessages) => {
   console.log('📱 Displaying WebSocket messages for event', eventId.value, ':', newMessages.length, 'messages')
   console.log('📝 WebSocket messages:', newMessages)
-  messages.value = newMessages
+  messages.value = newMessages.map((msg) => normalizeMessage(msg, eventId.value))
   nextTick(() => {
     scrollToBottom()
   })
